@@ -48,7 +48,7 @@ def test_sync_get_applied_returns_ids() -> None:
     col.find.return_value = [{"_id": "001_a"}, {"_id": "002_b"}]
     result = store.get_applied()
     assert result == {"001_a", "002_b"}
-    col.find.assert_called_once_with({}, {"_id": 1})
+    col.find.assert_called_once_with({"direction": "up"}, {"_id": 1})
 
 
 def test_sync_get_applied_empty() -> None:
