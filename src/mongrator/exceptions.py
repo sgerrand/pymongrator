@@ -1,6 +1,3 @@
-from __future__ import annotations
-
-
 class MigratorError(Exception):
     """Base class for all mongrator errors."""
 

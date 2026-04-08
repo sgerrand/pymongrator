@@ -9,8 +9,6 @@ Subcommands:
     validate — verify checksums of applied migrations
 """
 
-from __future__ import annotations
-
 import argparse
 import asyncio
 import sys

@@ -34,6 +34,10 @@ uvx ty check
 uv build
 ```
 
+## Code style
+
+- Do not add `from __future__ import annotations` — this project requires Python 3.13+, where `X | Y` union types and postponed evaluation are available natively.
+
 ## Structure
 
 Source lives under `src/mongrator/`. Key modules:

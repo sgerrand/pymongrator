@@ -11,16 +11,13 @@ The tracking collection stores one document per applied migration::
     }
 """
 
-from __future__ import annotations
-
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
+from typing import Literal, Protocol, runtime_checkable
+
+from pymongo.asynchronous.collection import AsyncCollection
+from pymongo.collection import Collection
 
 from .migration import MigrationId, MigrationRecord
-
-if TYPE_CHECKING:
-    from pymongo.asynchronous.collection import AsyncCollection
-    from pymongo.collection import Collection
 
 
 @runtime_checkable
@@ -52,7 +49,7 @@ class AsyncStateStore(Protocol):
 class SyncStateStore:
     """StateStore backed by a synchronous pymongo collection."""
 
-    def __init__(self, collection: Collection) -> None:  # type: ignore[type-arg]
+    def __init__(self, collection: "Collection") -> None:  # type: ignore[type-arg]
         self._col = collection
 
     def get_applied(self) -> set[MigrationId]:
@@ -71,7 +68,7 @@ class SyncStateStore:
 class AsyncMongoStateStore:
     """AsyncStateStore backed by a pymongo AsyncCollection."""
 
-    def __init__(self, collection: AsyncCollection) -> None:  # type: ignore[type-arg]
+    def __init__(self, collection: "AsyncCollection") -> None:  # type: ignore[type-arg]
         self._col = collection
 
     async def get_applied(self) -> set[MigrationId]:

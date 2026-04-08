@@ -1,7 +1,5 @@
 """Unit tests for mongrator.cli — argument parsing only, no runner invocation."""
 
-from __future__ import annotations
-
 import pytest
 
 from mongrator.cli import _build_parser

@@ -6,10 +6,10 @@ AsyncRunner wraps a pymongo AsyncMongoClient.
 Both share the same non-IO logic via loader and planner.
 """
 
-from __future__ import annotations
-
 import time
-from typing import TYPE_CHECKING, Any, Protocol, cast, runtime_checkable
+from typing import Any, Protocol, cast, runtime_checkable
+
+from pymongo import AsyncMongoClient, MongoClient
 
 from . import loader, planner
 from .config import MigratorConfig
@@ -17,9 +17,6 @@ from .exceptions import ChecksumMismatchError, NoDownMethodError
 from .migration import MigrationFile, MigrationId, MigrationStatus
 from .ops import Operation
 from .state import AsyncMongoStateStore, SyncStateStore, make_record
-
-if TYPE_CHECKING:
-    from pymongo import AsyncMongoClient, MongoClient
 
 
 @runtime_checkable
@@ -81,7 +78,7 @@ def _run_down_migration(migration: MigrationFile, db: Any) -> None:
 class SyncRunner:
     """Synchronous migration runner backed by pymongo."""
 
-    def __init__(self, client: MongoClient, config: MigratorConfig) -> None:  # type: ignore[type-arg]
+    def __init__(self, client: "MongoClient", config: MigratorConfig) -> None:  # type: ignore[type-arg]
         self._db = client[config.database]
         self._store = SyncStateStore(self._db[config.collection])
         self._config = config
@@ -149,7 +146,7 @@ class SyncRunner:
 class AsyncRunner:
     """Asynchronous migration runner backed by pymongo AsyncMongoClient."""
 
-    def __init__(self, client: AsyncMongoClient, config: MigratorConfig) -> None:  # type: ignore[type-arg]
+    def __init__(self, client: "AsyncMongoClient", config: MigratorConfig) -> None:  # type: ignore[type-arg]
         self._db = client[config.database]
         self._store = AsyncMongoStateStore(self._db[config.collection])
         self._config = config

@@ -1,9 +1,8 @@
-from __future__ import annotations
-
 import os
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Self
 
 from .exceptions import ConfigurationError
 
@@ -21,7 +20,7 @@ class MigratorConfig:
     collection: str = _DEFAULT_COLLECTION
 
     @classmethod
-    def from_toml(cls, path: Path) -> MigratorConfig:
+    def from_toml(cls, path: Path) -> Self:
         """Load configuration from a TOML file (e.g. mongrator.toml)."""
         try:
             with open(path, "rb") as f:
@@ -42,7 +41,7 @@ class MigratorConfig:
         return cls(uri=uri, database=database, migrations_dir=migrations_dir, collection=collection)
 
     @classmethod
-    def from_env(cls) -> MigratorConfig:
+    def from_env(cls) -> Self:
         """Load configuration from environment variables.
 
         Variables:

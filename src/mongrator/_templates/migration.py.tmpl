@@ -23,7 +23,6 @@ Example using plain PyMongo (define down() for rollback):
         db["my_collection"].update_many({{}}, {{"$unset": {{"new_field": ""}}}})
 """
 
-from __future__ import annotations
 
 # Uncomment to use the ops helpers:
 # from mongrator import ops

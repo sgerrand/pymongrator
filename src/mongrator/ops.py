@@ -16,13 +16,10 @@ Usage in a migration file::
         ]
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-if TYPE_CHECKING:
-    from pymongo.database import Database
+from pymongo.database import Database
 
 
 @dataclass

@@ -1,7 +1,5 @@
 """Unit tests for mongrator.runner — SyncRunner and AsyncRunner with mocked I/O."""
 
-from __future__ import annotations
-
 import types
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch

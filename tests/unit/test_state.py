@@ -1,7 +1,5 @@
 """Unit tests for mongrator.state — sync and async stores, make_record."""
 
-from __future__ import annotations
-
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 

@@ -1,7 +1,5 @@
 """Unit tests for mongrator.migration datatypes."""
 
-from __future__ import annotations
-
 import types
 from datetime import UTC, datetime
 from pathlib import Path

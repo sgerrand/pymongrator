@@ -1,7 +1,5 @@
 """Unit tests for mongrator.exceptions."""
 
-from __future__ import annotations
-
 import pytest
 
 from mongrator.exceptions import (

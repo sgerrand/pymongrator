@@ -1,7 +1,5 @@
 """Unit tests for mongrator.ops — uses MagicMock in place of a real pymongo Database."""
 
-from __future__ import annotations
-
 from unittest.mock import MagicMock
 
 import pytest
