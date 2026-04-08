@@ -3,6 +3,8 @@ name = "mongrator"
 version = "0.1.0"
 description = "Lightweight MongoDB schema migration tool"
 readme = "README.md"
+license = "BSD-2-Clause"
+license-files = ["LICENSE"]
 authors = [
     { name = "Sasha Gerrand", email = "mongrator@sgerrand.dev" }
 ]
