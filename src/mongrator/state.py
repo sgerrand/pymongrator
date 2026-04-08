@@ -53,7 +53,7 @@ class SyncStateStore:
         self._col = collection
 
     def get_applied(self) -> set[MigrationId]:
-        return {doc["_id"] for doc in self._col.find({}, {"_id": 1})}
+        return {doc["_id"] for doc in self._col.find({"direction": "up"}, {"_id": 1})}
 
     def record_applied(self, record: MigrationRecord) -> None:
         self._col.replace_one({"_id": record["_id"]}, record, upsert=True)
@@ -72,7 +72,7 @@ class AsyncMongoStateStore:
         self._col = collection
 
     async def get_applied(self) -> set[MigrationId]:
-        cursor = self._col.find({}, {"_id": 1})
+        cursor = self._col.find({"direction": "up"}, {"_id": 1})
         return {doc["_id"] async for doc in cursor}
 
     async def record_applied(self, record: MigrationRecord) -> None:

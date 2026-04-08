@@ -144,11 +144,18 @@ class SyncRunner:
 
 
 class AsyncRunner:
-    """Asynchronous migration runner backed by pymongo AsyncMongoClient."""
+    """Asynchronous migration runner backed by pymongo AsyncMongoClient.
+
+    Migration up()/down() functions always receive a synchronous pymongo Database
+    because ops helpers are synchronous. Only state tracking uses the async client.
+    """
 
     def __init__(self, client: "AsyncMongoClient", config: MigratorConfig) -> None:  # type: ignore[type-arg]
-        self._db = client[config.database]
-        self._store = AsyncMongoStateStore(self._db[config.collection])
+        # Sync DB passed to migration functions — ops helpers are synchronous pymongo.
+        self._db = MongoClient(config.uri)[config.database]
+        # Async store for non-blocking state tracking.
+        async_db = client[config.database]
+        self._store = AsyncMongoStateStore(async_db[config.collection])
         self._config = config
 
     async def up(self, target: MigrationId | None = None) -> list[MigrationId]:
