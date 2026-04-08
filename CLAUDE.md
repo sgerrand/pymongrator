@@ -30,6 +30,10 @@ uvx ruff check
 uvx ruff format --check
 uvx ty check
 
+# Validate GitHub Actions workflows before committing
+actionlint
+zizmor .github/workflows/
+
 # Build the package
 uv build
 ```
