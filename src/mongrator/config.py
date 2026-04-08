@@ -30,14 +30,16 @@ class MigratorConfig:
         except tomllib.TOMLDecodeError as e:
             raise ConfigurationError(f"Invalid TOML in {path}: {e}")
 
+        cfg = data.get("mongrator", data)
+
         try:
-            uri: str = data["uri"]
-            database: str = data["database"]
+            uri: str = cfg["uri"]
+            database: str = cfg["database"]
         except KeyError as e:
             raise ConfigurationError(f"Missing required config key: {e}")
 
-        migrations_dir = Path(data.get("migrations_dir", str(_DEFAULT_MIGRATIONS_DIR)))
-        collection: str = data.get("collection", _DEFAULT_COLLECTION)
+        migrations_dir = Path(cfg.get("migrations_dir", str(_DEFAULT_MIGRATIONS_DIR)))
+        collection: str = cfg.get("collection", _DEFAULT_COLLECTION)
         return cls(uri=uri, database=database, migrations_dir=migrations_dir, collection=collection)
 
     @classmethod

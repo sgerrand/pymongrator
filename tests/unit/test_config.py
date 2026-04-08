@@ -35,6 +35,30 @@ def test_from_toml_all_keys(tmp_path: Path) -> None:
     assert config.collection == "schema_versions"
 
 
+def test_from_toml_mongrator_table(tmp_path: Path) -> None:
+    cfg_file = tmp_path / "mongrator.toml"
+    cfg_file.write_text('[mongrator]\nuri = "mongodb://localhost:27017"\ndatabase = "mydb"\n')
+    config = MigratorConfig.from_toml(cfg_file)
+    assert config.uri == "mongodb://localhost:27017"
+    assert config.database == "mydb"
+    assert config.migrations_dir == _DEFAULT_MIGRATIONS_DIR
+    assert config.collection == _DEFAULT_COLLECTION
+
+
+def test_from_toml_mongrator_table_all_keys(tmp_path: Path) -> None:
+    cfg_file = tmp_path / "mongrator.toml"
+    cfg_file.write_text(
+        "[mongrator]\n"
+        'uri = "mongodb://host:27017"\n'
+        'database = "prod"\n'
+        'migrations_dir = "db/migrations"\n'
+        'collection = "schema_versions"\n'
+    )
+    config = MigratorConfig.from_toml(cfg_file)
+    assert config.migrations_dir == Path("db/migrations")
+    assert config.collection == "schema_versions"
+
+
 def test_from_toml_missing_uri(tmp_path: Path) -> None:
     cfg_file = tmp_path / "mongrator.toml"
     cfg_file.write_text('database = "mydb"\n')
