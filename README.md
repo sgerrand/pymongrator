@@ -1,5 +1,7 @@
 # mongrator
 
+[![CI](https://github.com/sgerrand/pymongrator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sgerrand/pymongrator/actions/workflows/ci.yml)
+
 Lightweight MongoDB schema migration tool with synchronous and asynchronous PyMongo support.
 
 ## Installation
