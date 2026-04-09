@@ -1,5 +1,8 @@
 # mongrator
 
+[![PyPI Version](https://img.shields.io/pypi/v/mongrator)](https://pypi.org/project/mongrator)
+[![Python Versions](https://img.shields.io/pypi/pyversions/mongrator)](https://pypi.org/project/mongrator)
+[![Monthly Downloads](https://static.pepy.tech/badge/mongrator/month)](https://pepy.tech/project/mongrator)
 [![CI](https://github.com/sgerrand/pymongrator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sgerrand/pymongrator/actions/workflows/ci.yml)
 
 Lightweight MongoDB schema migration tool with synchronous and asynchronous PyMongo support.
