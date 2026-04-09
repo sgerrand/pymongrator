@@ -51,12 +51,12 @@ collection = "mongrator_migrations"  # optional
 
 Alternatively, configure via environment variables:
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `MONGRATOR_URI` | MongoDB connection URI | yes |
-| `MONGRATOR_DB` | Database name | yes |
-| `MONGRATOR_MIGRATIONS_DIR` | Path to migrations directory | no (default: `migrations`) |
-| `MONGRATOR_COLLECTION` | Tracking collection name | no (default: `mongrator_migrations`) |
+| Variable                   | Description                  | Required                             |
+|----------------------------|------------------------------|--------------------------------------|
+| `MONGRATOR_URI`            | MongoDB connection URI       | yes                                  |
+| `MONGRATOR_DB`             | Database name                | yes                                  |
+| `MONGRATOR_MIGRATIONS_DIR` | Path to migrations directory | no (default: `migrations`)           |
+| `MONGRATOR_COLLECTION`     | Tracking collection name     | no (default: `mongrator_migrations`) |
 
 ## Writing migrations
 
@@ -94,16 +94,16 @@ def down(db):
 
 ### Available ops helpers
 
-| Helper | Reversible | Description |
-|--------|-----------|-------------|
-| `ops.create_index(collection, keys, **kwargs)` | yes | Create an index |
-| `ops.drop_index(collection, index_name)` | no | Drop an index by name |
-| `ops.rename_field(collection, old, new, filter=None)` | yes | Rename a field across documents |
-| `ops.add_field(collection, field, default_value, filter=None)` | yes | Add a field with a default value |
+| Helper                                                         | Reversible | Description                      |
+|----------------------------------------------------------------|------------|----------------------------------|
+| `ops.create_index(collection, keys, **kwargs)`                 | yes        | Create an index                  |
+| `ops.drop_index(collection, index_name)`                       | no         | Drop an index by name            |
+| `ops.rename_field(collection, old, new, filter=None)`          | yes        | Rename a field across documents  |
+| `ops.add_field(collection, field, default_value, filter=None)` | yes        | Add a field with a default value |
 
 ## CLI reference
 
-```
+```text
 mongrator init                        create migrations dir and mongrator.toml
 mongrator create <name>               generate a new migration file
 mongrator status                      show applied/pending migrations

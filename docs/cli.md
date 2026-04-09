@@ -2,9 +2,9 @@
 
 ## Global options
 
-| Option | Description |
-|--------|-------------|
-| `--config PATH` | Path to config file (default: `mongrator.toml`) |
+| Option          | Description                                      |
+|-----------------|--------------------------------------------------|
+| `--config PATH` | Path to config file (default: `mongrator.toml`)  |
 
 ## Commands
 
@@ -40,10 +40,10 @@ Apply pending migrations.
 mongrator up [--target ID] [--async]
 ```
 
-| Option | Description |
-|--------|-------------|
-| `--target ID` | Apply only up to this migration ID |
-| `--async` | Use the async runner (`pymongo.AsyncMongoClient`) |
+| Option        | Description                                       |
+|---------------|---------------------------------------------------|
+| `--target ID` | Apply only up to this migration ID                |
+| `--async`     | Use the async runner (`pymongo.AsyncMongoClient`) |
 
 ### `mongrator down`
 
@@ -53,10 +53,10 @@ Roll back applied migrations.
 mongrator down [--steps N] [--async]
 ```
 
-| Option | Description |
-|--------|-------------|
-| `--steps N` | Number of migrations to roll back (default: 1) |
-| `--async` | Use the async runner |
+| Option      | Description                                      |
+|-------------|--------------------------------------------------|
+| `--steps N` | Number of migrations to roll back (default: 1)   |
+| `--async`   | Use the async runner                             |
 
 ### `mongrator validate`
 
