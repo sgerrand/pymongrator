@@ -100,6 +100,16 @@ def test_up_target_and_async() -> None:
     assert ns.use_async is True
 
 
+def test_up_dry_run_flag() -> None:
+    ns = parse("up", "--dry-run")
+    assert ns.dry_run is True
+
+
+def test_up_dry_run_default() -> None:
+    ns = parse("up")
+    assert ns.dry_run is False
+
+
 # ---------------------------------------------------------------------------
 # down
 # ---------------------------------------------------------------------------
@@ -120,6 +130,16 @@ def test_down_steps() -> None:
 def test_down_async_flag() -> None:
     ns = parse("down", "--async")
     assert ns.use_async is True
+
+
+def test_down_dry_run_flag() -> None:
+    ns = parse("down", "--dry-run")
+    assert ns.dry_run is True
+
+
+def test_down_dry_run_default() -> None:
+    ns = parse("down")
+    assert ns.dry_run is False
 
 
 def test_down_invalid_steps_type_exits() -> None:

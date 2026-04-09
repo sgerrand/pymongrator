@@ -16,6 +16,7 @@ from .config import MigratorConfig
 from .exceptions import ChecksumMismatchError, NoDownMethodError
 from .migration import MigrationFile, MigrationId, MigrationStatus
 from .ops import Operation
+from .planner import MigrationPlan
 from .state import AsyncMongoStateStore, SyncStateStore, make_record
 
 
@@ -82,6 +83,18 @@ class SyncRunner:
         self._db = client[config.database]
         self._store = SyncStateStore(self._db[config.collection])
         self._config = config
+
+    def plan_up(self, target: MigrationId | None = None) -> MigrationPlan:
+        """Return the plan for applying pending migrations without executing."""
+        files = loader.load(self._config)
+        applied = self._store.get_applied()
+        return planner.plan_up(files, applied, target)
+
+    def plan_down(self, steps: int = 1) -> MigrationPlan:
+        """Return the plan for rolling back migrations without executing."""
+        files = loader.load(self._config)
+        applied = self._store.get_applied()
+        return planner.plan_down(files, applied, steps)
 
     def up(self, target: MigrationId | None = None) -> list[MigrationId]:
         """Apply pending migrations, optionally up to `target`."""
@@ -166,6 +179,18 @@ class AsyncRunner:
         async_db = client[config.database]
         self._store = AsyncMongoStateStore(async_db[config.collection])
         self._config = config
+
+    async def plan_up(self, target: MigrationId | None = None) -> MigrationPlan:
+        """Return the plan for applying pending migrations without executing."""
+        files = loader.load(self._config)
+        applied = await self._store.get_applied()
+        return planner.plan_up(files, applied, target)
+
+    async def plan_down(self, steps: int = 1) -> MigrationPlan:
+        """Return the plan for rolling back migrations without executing."""
+        files = loader.load(self._config)
+        applied = await self._store.get_applied()
+        return planner.plan_down(files, applied, steps)
 
     async def up(self, target: MigrationId | None = None) -> list[MigrationId]:
         """Apply pending migrations, optionally up to `target`."""
