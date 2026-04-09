@@ -116,9 +116,9 @@ def _cmd_status(args: argparse.Namespace) -> int:
         print("error: pymongo is required. Install with: pip install pymongo", file=sys.stderr)
         return 1
 
-    client = pymongo.MongoClient(config.uri)
-    runner = SyncRunner(client, config)
-    statuses = runner.status()
+    with pymongo.MongoClient(config.uri) as client:
+        runner = SyncRunner(client, config)
+        statuses = runner.status()
 
     if not statuses:
         print("No migrations found.")
@@ -144,9 +144,9 @@ def _cmd_up(args: argparse.Namespace) -> int:
 
     from .runner import SyncRunner
 
-    client = pymongo.MongoClient(config.uri)
-    runner = SyncRunner(client, config)
-    applied = runner.up(target=args.target)
+    with pymongo.MongoClient(config.uri) as client:
+        runner = SyncRunner(client, config)
+        applied = runner.up(target=args.target)
     if applied:
         for mid in applied:
             print(f"  applied  {mid}")
@@ -160,9 +160,9 @@ async def _async_up(config: MigratorConfig, target: str | None) -> int:
 
     from .runner import AsyncRunner
 
-    client = AsyncMongoClient(config.uri)
-    runner = AsyncRunner(client, config)
-    applied = await runner.up(target=target)
+    async with AsyncMongoClient(config.uri) as client:
+        runner = AsyncRunner(client, config)
+        applied = await runner.up(target=target)
     if applied:
         for mid in applied:
             print(f"  applied  {mid}")
@@ -179,9 +179,9 @@ def _cmd_down(args: argparse.Namespace) -> int:
 
     from .runner import SyncRunner
 
-    client = pymongo.MongoClient(config.uri)
-    runner = SyncRunner(client, config)
-    rolled_back = runner.down(steps=args.steps)
+    with pymongo.MongoClient(config.uri) as client:
+        runner = SyncRunner(client, config)
+        rolled_back = runner.down(steps=args.steps)
     if rolled_back:
         for mid in rolled_back:
             print(f"  rolled back  {mid}")
@@ -195,9 +195,9 @@ async def _async_down(config: MigratorConfig, steps: int) -> int:
 
     from .runner import AsyncRunner
 
-    client = AsyncMongoClient(config.uri)
-    runner = AsyncRunner(client, config)
-    rolled_back = await runner.down(steps=steps)
+    async with AsyncMongoClient(config.uri) as client:
+        runner = AsyncRunner(client, config)
+        rolled_back = await runner.down(steps=steps)
     if rolled_back:
         for mid in rolled_back:
             print(f"  rolled back  {mid}")
@@ -212,9 +212,9 @@ def _cmd_validate(args: argparse.Namespace) -> int:
     from .runner import SyncRunner
 
     config = _load_config(args)
-    client = pymongo.MongoClient(config.uri)
-    runner = SyncRunner(client, config)
-    errors = runner.validate()
+    with pymongo.MongoClient(config.uri) as client:
+        runner = SyncRunner(client, config)
+        errors = runner.validate()
 
     if not errors:
         print("All applied migrations have valid checksums.")
