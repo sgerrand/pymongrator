@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from mongrator.config import MigratorConfig
-from mongrator.exceptions import NoDownMethodError
+from mongrator.exceptions import MigrationLockError, NoDownMethodError
 from mongrator.migration import MigrationFile
 from mongrator.ops import create_index
 from mongrator.runner import AsyncRunner, SyncRunner
@@ -384,6 +384,104 @@ async def test_async_plan_up_returns_pending(tmp_path: Path) -> None:
 
     assert [m.id for m in plan.to_apply] == ["002_b"]
     assert [m.id for m in plan.to_skip] == ["001_a"]
+    store.record_applied.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# SyncRunner lock usage
+# ---------------------------------------------------------------------------
+
+
+def test_sync_up_acquires_and_releases_lock(tmp_path: Path) -> None:
+    runner, db, store = _sync_runner(tmp_path)
+    store.get_applied.return_value = set()
+
+    with patch("mongrator.runner.loader.load", return_value=[_migration("001_a")]):
+        runner.up()
+
+    runner._lock.__enter__.assert_called_once()
+    runner._lock.__exit__.assert_called_once()
+
+
+def test_sync_down_acquires_and_releases_lock(tmp_path: Path) -> None:
+    runner, db, store = _sync_runner(tmp_path)
+    store.get_applied.return_value = {"001_a"}
+
+    with patch("mongrator.runner.loader.load", return_value=[_migration("001_a", has_down=True)]):
+        runner.down()
+
+    runner._lock.__enter__.assert_called_once()
+    runner._lock.__exit__.assert_called_once()
+
+
+def test_sync_up_propagates_lock_error(tmp_path: Path) -> None:
+    runner, db, store = _sync_runner(tmp_path)
+    runner._lock.__enter__.side_effect = MigrationLockError()
+
+    with pytest.raises(MigrationLockError):
+        runner.up()
+
+    store.record_applied.assert_not_called()
+
+
+def test_sync_down_propagates_lock_error(tmp_path: Path) -> None:
+    runner, db, store = _sync_runner(tmp_path)
+    runner._lock.__enter__.side_effect = MigrationLockError()
+
+    with pytest.raises(MigrationLockError):
+        runner.down()
+
+    store.record_applied.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# AsyncRunner lock usage
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_async_up_acquires_and_releases_lock(tmp_path: Path) -> None:
+    runner, db, store = _async_runner(tmp_path)
+    store.get_applied.return_value = set()
+
+    with patch("mongrator.runner.loader.load", return_value=[_migration("001_a")]):
+        await runner.up()
+
+    runner._lock.__aenter__.assert_called_once()
+    runner._lock.__aexit__.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_async_down_acquires_and_releases_lock(tmp_path: Path) -> None:
+    runner, db, store = _async_runner(tmp_path)
+    store.get_applied.return_value = {"001_a"}
+
+    with patch("mongrator.runner.loader.load", return_value=[_migration("001_a", has_down=True)]):
+        await runner.down()
+
+    runner._lock.__aenter__.assert_called_once()
+    runner._lock.__aexit__.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_async_up_propagates_lock_error(tmp_path: Path) -> None:
+    runner, db, store = _async_runner(tmp_path)
+    runner._lock.__aenter__.side_effect = MigrationLockError()
+
+    with pytest.raises(MigrationLockError):
+        await runner.up()
+
+    store.record_applied.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_async_down_propagates_lock_error(tmp_path: Path) -> None:
+    runner, db, store = _async_runner(tmp_path)
+    runner._lock.__aenter__.side_effect = MigrationLockError()
+
+    with pytest.raises(MigrationLockError):
+        await runner.down()
+
     store.record_applied.assert_not_called()
 
 
