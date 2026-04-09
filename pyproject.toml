@@ -19,6 +19,7 @@ classifiers = [
     "Topic :: Database",
     "Typing :: Typed",
 ]
+keywords = ["mongodb", "migration", "schema", "pymongo", "database"]
 requires-python = ">=3.13"
 dependencies = [
     "pymongo>=4.10",
