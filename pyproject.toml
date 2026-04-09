@@ -60,7 +60,7 @@ asyncio_mode = "auto"
 
 [tool.coverage.run]
 source = ["mongrator"]
-omit = ["/tmp/*", "/private/*"]
+omit = ["tests/*"]
 
 [tool.coverage.report]
 show_missing = true
