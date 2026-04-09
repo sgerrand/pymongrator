@@ -19,12 +19,15 @@ def up(db):
 
 ### Available ops helpers
 
-| Helper                                                         | Reversible | Description                      |
-|----------------------------------------------------------------|------------|----------------------------------|
-| `ops.create_index(collection, keys, **kwargs)`                 | yes        | Create an index                  |
-| `ops.drop_index(collection, index_name)`                       | no         | Drop an index by name            |
-| `ops.rename_field(collection, old, new, filter=None)`          | yes        | Rename a field across documents  |
-| `ops.add_field(collection, field, default_value, filter=None)` | yes        | Add a field with a default value |
+| Helper                                                         | Reversible | Description                          |
+|----------------------------------------------------------------|------------|--------------------------------------|
+| `ops.create_index(collection, keys, **kwargs)`                 | yes        | Create an index                      |
+| `ops.drop_index(collection, index_name)`                       | no         | Drop an index by name                |
+| `ops.rename_field(collection, old, new, filter=None)`          | yes        | Rename a field across documents      |
+| `ops.add_field(collection, field, default_value, filter=None)` | yes        | Add a field with a default value     |
+| `ops.drop_field(collection, field, filter=None)`               | no         | Remove a field from documents        |
+| `ops.create_collection(collection, **kwargs)`                  | yes        | Create a collection (reverts by drop)|
+| `ops.drop_collection(collection)`                              | no         | Drop a collection                    |
 
 See the [ops API reference](api/ops.md) for full details.
 

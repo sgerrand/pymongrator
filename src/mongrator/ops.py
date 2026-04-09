@@ -126,3 +126,70 @@ def add_field(
         _apply=apply,
         _revert=revert,
     )
+
+
+def drop_field(
+    collection: str,
+    field_name: str,
+    filter: dict[str, Any] | None = None,
+) -> Operation:
+    """Remove a field from all (or filtered) documents. Not auto-reversible
+    because the original values are lost.
+    """
+    query = filter or {}
+
+    def apply(db: Database) -> None:  # type: ignore[type-arg]
+        db[collection].update_many(
+            {**query, field_name: {"$exists": True}},
+            {"$unset": {field_name: ""}},
+        )
+
+    def revert(db: Database) -> None:  # type: ignore[type-arg]
+        raise NotImplementedError(
+            f"drop_field({collection!r}, {field_name!r}) cannot be auto-reverted. "
+            "Define a down() function to restore the field."
+        )
+
+    return Operation(
+        description=f"drop_field({collection!r}, {field_name!r})",
+        _apply=apply,
+        _revert=revert,
+    )
+
+
+def create_collection(collection: str, **kwargs: Any) -> Operation:
+    """Create a collection. Reverts by dropping it."""
+
+    def apply(db: Database) -> None:  # type: ignore[type-arg]
+        db.create_collection(collection, **kwargs)
+
+    def revert(db: Database) -> None:  # type: ignore[type-arg]
+        db.drop_collection(collection)
+
+    return Operation(
+        description="create_collection({!r}{})".format(
+            collection,
+            ", " + ", ".join(f"{k}={v!r}" for k, v in kwargs.items()) if kwargs else "",
+        ),
+        _apply=apply,
+        _revert=revert,
+    )
+
+
+def drop_collection(collection: str) -> Operation:
+    """Drop a collection. Not auto-reversible because the data is lost."""
+
+    def apply(db: Database) -> None:  # type: ignore[type-arg]
+        db.drop_collection(collection)
+
+    def revert(db: Database) -> None:  # type: ignore[type-arg]
+        raise NotImplementedError(
+            f"drop_collection({collection!r}) cannot be auto-reverted. "
+            "Define a down() function to recreate the collection."
+        )
+
+    return Operation(
+        description=f"drop_collection({collection!r})",
+        _apply=apply,
+        _revert=revert,
+    )
