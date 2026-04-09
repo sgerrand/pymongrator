@@ -154,6 +154,18 @@ def test_drop_index_stateless_revert_with_keys() -> None:
     db["users"].create_index.assert_called_once_with([("email", 1)], name="email_1", unique=True)
 
 
+def test_drop_index_stateless_revert_name_in_kwargs_no_conflict() -> None:
+    """Passing name= in kwargs does not cause a duplicate keyword argument error."""
+    db = _db()
+    op = drop_index("users", "my_idx", keys=[("email", 1)], name="ignored", unique=True)
+    op.revert(db)
+    db["users"].create_index.assert_called_once_with(
+        [("email", 1)],
+        name="my_idx",
+        unique=True,
+    )
+
+
 def test_drop_index_stateless_apply_skips_capture() -> None:
     """When keys are supplied, apply() drops the index without querying index_information."""
     db = _db()

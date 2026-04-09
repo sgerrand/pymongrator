@@ -79,6 +79,8 @@ def drop_index(
     Operation instance that ran apply().
     """
     _captured_spec: dict[str, Any] = {}
+    # index_name is authoritative; drop any conflicting name from kwargs.
+    kwargs.pop("name", None)
 
     def apply(db: Database) -> None:  # type: ignore[type-arg]
         if keys is None:
