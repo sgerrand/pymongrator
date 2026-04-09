@@ -2,6 +2,7 @@
 
 import types
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -9,7 +10,7 @@ import pytest
 from mongrator.config import MigratorConfig
 from mongrator.exceptions import MigrationLockError, NoDownMethodError
 from mongrator.migration import MigrationFile
-from mongrator.ops import create_index
+from mongrator.ops import create_index, drop_index
 from mongrator.runner import AsyncRunner, SyncRunner
 from mongrator.state import make_record
 
@@ -22,9 +23,17 @@ def _config(tmp_path: Path) -> MigratorConfig:
     return MigratorConfig(uri="mongodb://localhost:27017", database="testdb", migrations_dir=tmp_path)
 
 
-def _migration(migration_id: str, *, has_down: bool = False, ops_based: bool = False) -> MigrationFile:
+def _migration(
+    migration_id: str,
+    *,
+    has_down: bool = False,
+    ops_based: bool = False,
+    ops_fn: Any = None,
+) -> MigrationFile:
     mod = types.ModuleType(f"_test_{migration_id}")
-    if ops_based:
+    if ops_fn is not None:
+        setattr(mod, "up", ops_fn)
+    elif ops_based:
         index_op = create_index("col", {"field": 1})
         setattr(mod, "up", lambda db: [index_op])
     else:
@@ -176,6 +185,27 @@ def test_sync_down_ops_based_auto_rollback(tmp_path: Path) -> None:
     assert rolled_back == ["001_a"]
 
 
+def test_sync_down_drop_index_ops_auto_rollback(tmp_path: Path) -> None:
+    """SyncRunner.down() auto-reverts drop_index on fresh Operation instances."""
+    runner, db, store = _sync_runner(tmp_path)
+
+    def up_fn(db: Any) -> list:
+        return [drop_index("col", "email_1", keys=[("email", 1)], unique=True)]
+
+    migrations = [_migration("001_a", ops_fn=up_fn)]
+    store.get_applied.return_value = {"001_a"}
+
+    with patch("mongrator.runner.loader.load", return_value=migrations):
+        rolled_back = runner.down()
+
+    assert rolled_back == ["001_a"]
+    db["col"].create_index.assert_called_once_with(
+        [("email", 1)],
+        name="email_1",
+        unique=True,
+    )
+
+
 def test_sync_down_records_direction_down(tmp_path: Path) -> None:
     runner, db, store = _sync_runner(tmp_path)
     migrations = [_migration("001_a", has_down=True)]
@@ -299,6 +329,30 @@ async def test_async_down_rolls_back(tmp_path: Path) -> None:
         rolled_back = await runner.down(steps=1)
 
     assert rolled_back == ["002_b"]
+
+
+@pytest.mark.asyncio
+async def test_async_down_drop_index_ops_auto_rollback(tmp_path: Path) -> None:
+    """AsyncRunner.down() auto-reverts drop_index on fresh Operation instances."""
+    runner, db, store = _async_runner(tmp_path)
+    # AsyncRunner._db is set from a real MongoClient in __init__; override with mock.
+    runner._db = db
+
+    def up_fn(db: Any) -> list:
+        return [drop_index("col", "email_1", keys=[("email", 1)], unique=True)]
+
+    migrations = [_migration("001_a", ops_fn=up_fn)]
+    store.get_applied.return_value = {"001_a"}
+
+    with patch("mongrator.runner.loader.load", return_value=migrations):
+        rolled_back = await runner.down()
+
+    assert rolled_back == ["001_a"]
+    db["col"].create_index.assert_called_once_with(
+        [("email", 1)],
+        name="email_1",
+        unique=True,
+    )
 
 
 @pytest.mark.asyncio
