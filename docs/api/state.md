@@ -1,0 +1,3 @@
+# mongrator.state
+
+::: mongrator.state

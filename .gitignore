@@ -9,5 +9,8 @@ wheels/
 # Virtual environments
 .venv
 
+# Documentation build output
+site/
+
 # Coding agents
 .claude

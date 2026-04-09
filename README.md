@@ -13,6 +13,12 @@ Lightweight MongoDB schema migration tool with synchronous and asynchronous PyMo
 pip install mongrator
 ```
 
+Or with [uv](https://docs.astral.sh/uv/):
+
+```sh
+uv add mongrator
+```
+
 ## Quick start
 
 ```sh

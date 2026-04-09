@@ -1,0 +1,3 @@
+# mongrator.exceptions
+
+::: mongrator.exceptions
