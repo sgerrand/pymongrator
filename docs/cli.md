@@ -37,26 +37,28 @@ mongrator status
 Apply pending migrations.
 
 ```sh
-mongrator up [--target ID] [--async]
+mongrator up [--target ID] [--async] [--dry-run]
 ```
 
-| Option        | Description                                       |
-|---------------|---------------------------------------------------|
-| `--target ID` | Apply only up to this migration ID                |
-| `--async`     | Use the async runner (`pymongo.AsyncMongoClient`) |
+| Option        | Description                                                    |
+|---------------|----------------------------------------------------------------|
+| `--target ID` | Apply only up to this migration ID                             |
+| `--async`     | Use the async runner (`pymongo.AsyncMongoClient`)              |
+| `--dry-run`   | Show which migrations would be applied without executing them  |
 
 ### `mongrator down`
 
 Roll back applied migrations.
 
 ```sh
-mongrator down [--steps N] [--async]
+mongrator down [--steps N] [--async] [--dry-run]
 ```
 
-| Option      | Description                                      |
-|-------------|--------------------------------------------------|
-| `--steps N` | Number of migrations to roll back (default: 1)   |
-| `--async`   | Use the async runner                             |
+| Option      | Description                                                       |
+|-------------|-------------------------------------------------------------------|
+| `--steps N` | Number of migrations to roll back (default: 1)                    |
+| `--async`   | Use the async runner                                              |
+| `--dry-run` | Show which migrations would be rolled back without executing them |
 
 ### `mongrator validate`
 
