@@ -11,4 +11,4 @@ build:
     build:
       html:
         - uv run zensical build
-        - cp -r site $READTHEDOCS_OUTPUT/html
+        - cp -r site/. $READTHEDOCS_OUTPUT/html
