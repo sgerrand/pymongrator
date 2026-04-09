@@ -150,9 +150,18 @@ class AsyncRunner:
     because ops helpers are synchronous. Only state tracking uses the async client.
     """
 
-    def __init__(self, client: "AsyncMongoClient", config: MigratorConfig) -> None:  # type: ignore[type-arg]
+    def __init__(  # type: ignore[type-arg]
+        self,
+        client: "AsyncMongoClient",
+        config: MigratorConfig,
+        *,
+        sync_client: "MongoClient | None" = None,
+    ) -> None:
         # Sync DB passed to migration functions — ops helpers are synchronous pymongo.
-        self._db = MongoClient(config.uri)[config.database]
+        if sync_client is None:
+            sync_client = MongoClient(config.uri)
+        self._sync_client = sync_client
+        self._db = sync_client[config.database]
         # Async store for non-blocking state tracking.
         async_db = client[config.database]
         self._store = AsyncMongoStateStore(async_db[config.collection])
