@@ -144,7 +144,7 @@ dev = [
     { name = "pytest-asyncio", specifier = ">=0.24" },
     { name = "ruff", specifier = ">=0.9" },
     { name = "testcontainers", extras = ["mongodb"], specifier = ">=4.0" },
-    { name = "ty" },
+    { name = "ty", specifier = ">=0.0.20" },
 ]
 
 [[package]]
