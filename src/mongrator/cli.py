@@ -57,7 +57,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--steps", type=int, default=1, metavar="N", help="number of migrations to roll back (default: 1)"
     )
     p_down.add_argument("--async", dest="use_async", action="store_true", help="use async runner")
-    p_down.add_argument("--dry-run", action="store_true", help="show which migrations would be rolled back")
+    p_down.add_argument("--dry-run", action="store_true", help="show which migrations would be rolled back without executing")
 
     # validate
     sub.add_parser("validate", help="verify checksums of applied migration files")
