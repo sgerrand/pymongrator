@@ -25,6 +25,11 @@ dev = [
 [project.scripts]
 mongrator = "mongrator:main"
 
+[project.urls]
+Homepage = "https://github.com/sgerrand/mongrator"
+Repository = "https://github.com/sgerrand/mongrator"
+"Bug Tracker" = "https://github.com/sgerrand/mongrator/issues"
+
 [build-system]
 requires = ["uv_build>=0.8.20,<0.9.0"]
 build-backend = "uv_build"
