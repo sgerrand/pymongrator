@@ -119,7 +119,7 @@ def test_drop_index_revert_recreates_index() -> None:
     op.apply(db)
     db.reset_mock()
     op.revert(db)
-    db["users"].create_index.assert_called_once_with([("email", 1)], unique=True)
+    db["users"].create_index.assert_called_once_with([("email", 1)], unique=True, name="email_1")
 
 
 def test_drop_index_revert_raises_without_capture() -> None:
@@ -134,7 +134,7 @@ def test_drop_index_stateless_revert_with_keys() -> None:
     db = _db()
     op = drop_index("users", "email_1", keys=[("email", 1)], unique=True)
     op.revert(db)
-    db["users"].create_index.assert_called_once_with([("email", 1)], unique=True)
+    db["users"].create_index.assert_called_once_with([("email", 1)], name="email_1", unique=True)
 
 
 def test_drop_index_stateless_apply_skips_capture() -> None:
@@ -155,7 +155,7 @@ def test_drop_index_stateless_revert_without_apply() -> None:
     # Second call — runner calls up() again then reverts fresh instances
     op2 = drop_index("users", "email_1", keys=[("email", 1)], unique=True)
     op2.revert(db)
-    db["users"].create_index.assert_called_once_with([("email", 1)], unique=True)
+    db["users"].create_index.assert_called_once_with([("email", 1)], name="email_1", unique=True)
 
 
 # ---------------------------------------------------------------------------

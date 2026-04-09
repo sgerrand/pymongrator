@@ -92,8 +92,9 @@ def drop_index(
 
     def revert(db: Database) -> None:  # type: ignore[type-arg]
         if keys is not None:
-            db[collection].create_index(keys, **kwargs)
+            db[collection].create_index(keys, name=index_name, **kwargs)
         elif _captured_spec:
+            _captured_spec["opts"]["name"] = index_name
             db[collection].create_index(_captured_spec["key"], **_captured_spec["opts"])
         else:
             raise NotImplementedError(
