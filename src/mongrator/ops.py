@@ -60,26 +60,46 @@ def create_index(
     )
 
 
-def drop_index(collection: str, index_name: str) -> Operation:
-    """Drop an index by name. Reverts by recreating the index from its captured spec."""
+def drop_index(
+    collection: str,
+    index_name: str,
+    keys: list[tuple[str, int]] | None = None,
+    **kwargs: Any,
+) -> Operation:
+    """Drop an index by name. Reverts by recreating the index.
+
+    When *keys* (and optional index options) are provided, revert is fully
+    stateless — it recreates the index from the supplied spec without needing
+    to have run apply() first.  This is required for the ops-based auto-
+    rollback path where the runner calls ``up(db)`` a second time and then
+    immediately calls ``revert()`` on fresh Operation instances.
+
+    If *keys* is omitted, apply() will attempt to capture the index spec at
+    runtime; however this only works when revert() is called on the **same**
+    Operation instance that ran apply().
+    """
     _captured_spec: dict[str, Any] = {}
 
     def apply(db: Database) -> None:  # type: ignore[type-arg]
-        indexes = db[collection].index_information()
-        if index_name in indexes:
-            info = indexes[index_name]
-            _captured_spec["key"] = info["key"]
-            opts = {k: v for k, v in info.items() if k not in ("key", "v", "ns")}
-            _captured_spec["opts"] = opts
+        if keys is None:
+            indexes = db[collection].index_information()
+            if index_name in indexes:
+                info = indexes[index_name]
+                _captured_spec["key"] = info["key"]
+                opts = {k: v for k, v in info.items() if k not in ("key", "v", "ns")}
+                _captured_spec["opts"] = opts
         db[collection].drop_index(index_name)
 
     def revert(db: Database) -> None:  # type: ignore[type-arg]
-        if not _captured_spec:
+        if keys is not None:
+            db[collection].create_index(keys, **kwargs)
+        elif _captured_spec:
+            db[collection].create_index(_captured_spec["key"], **_captured_spec["opts"])
+        else:
             raise NotImplementedError(
                 f"drop_index({collection!r}, {index_name!r}) cannot be auto-reverted: "
-                "index spec was not captured. Define a down() function to recreate the index."
+                "index spec was not captured. Supply keys= or define a down() function."
             )
-        db[collection].create_index(_captured_spec["key"], **_captured_spec["opts"])
 
     return Operation(
         description=f"drop_index({collection!r}, {index_name!r})",

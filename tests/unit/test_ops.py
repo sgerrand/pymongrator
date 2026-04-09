@@ -129,6 +129,35 @@ def test_drop_index_revert_raises_without_capture() -> None:
         op.revert(db)
 
 
+def test_drop_index_stateless_revert_with_keys() -> None:
+    """When keys are supplied, revert recreates the index without needing apply()."""
+    db = _db()
+    op = drop_index("users", "email_1", keys=[("email", 1)], unique=True)
+    op.revert(db)
+    db["users"].create_index.assert_called_once_with([("email", 1)], unique=True)
+
+
+def test_drop_index_stateless_apply_skips_capture() -> None:
+    """When keys are supplied, apply() drops the index without querying index_information."""
+    db = _db()
+    op = drop_index("users", "email_1", keys=[("email", 1)])
+    op.apply(db)
+    db["users"].drop_index.assert_called_once_with("email_1")
+    db["users"].index_information.assert_not_called()
+
+
+def test_drop_index_stateless_revert_without_apply() -> None:
+    """Simulates the runner's auto-rollback: fresh instance, no apply(), revert works."""
+    db = _db()
+    # First call — the "up" run
+    op1 = drop_index("users", "email_1", keys=[("email", 1)], unique=True)
+    op1.apply(db)
+    # Second call — runner calls up() again then reverts fresh instances
+    op2 = drop_index("users", "email_1", keys=[("email", 1)], unique=True)
+    op2.revert(db)
+    db["users"].create_index.assert_called_once_with([("email", 1)], unique=True)
+
+
 # ---------------------------------------------------------------------------
 # rename_field
 # ---------------------------------------------------------------------------
