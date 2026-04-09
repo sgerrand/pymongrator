@@ -61,16 +61,25 @@ def create_index(
 
 
 def drop_index(collection: str, index_name: str) -> Operation:
-    """Drop an index by name. Not auto-reversible (index spec is unknown)."""
+    """Drop an index by name. Reverts by recreating the index from its captured spec."""
+    _captured_spec: dict[str, Any] = {}
 
     def apply(db: Database) -> None:  # type: ignore[type-arg]
+        indexes = db[collection].index_information()
+        if index_name in indexes:
+            info = indexes[index_name]
+            _captured_spec["key"] = info["key"]
+            opts = {k: v for k, v in info.items() if k not in ("key", "v", "ns")}
+            _captured_spec["opts"] = opts
         db[collection].drop_index(index_name)
 
     def revert(db: Database) -> None:  # type: ignore[type-arg]
-        raise NotImplementedError(
-            f"drop_index({collection!r}, {index_name!r}) cannot be auto-reverted. "
-            "Define a down() function to recreate the index."
-        )
+        if not _captured_spec:
+            raise NotImplementedError(
+                f"drop_index({collection!r}, {index_name!r}) cannot be auto-reverted: "
+                "index spec was not captured. Define a down() function to recreate the index."
+            )
+        db[collection].create_index(_captured_spec["key"], **_captured_spec["opts"])
 
     return Operation(
         description=f"drop_index({collection!r}, {index_name!r})",

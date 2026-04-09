@@ -92,14 +92,37 @@ def test_drop_index_description() -> None:
     assert "email_1" in op.description
 
 
-def test_drop_index_apply() -> None:
+def test_drop_index_apply_captures_spec() -> None:
     db = _db()
+    db["users"].index_information.return_value = {
+        "email_1": {"key": [("email", 1)], "unique": True, "v": 2},
+    }
     op = drop_index("users", "email_1")
     op.apply(db)
     db["users"].drop_index.assert_called_once_with("email_1")
 
 
-def test_drop_index_revert_raises() -> None:
+def test_drop_index_apply_missing_index() -> None:
+    db = _db()
+    db["users"].index_information.return_value = {}
+    op = drop_index("users", "email_1")
+    op.apply(db)
+    db["users"].drop_index.assert_called_once_with("email_1")
+
+
+def test_drop_index_revert_recreates_index() -> None:
+    db = _db()
+    db["users"].index_information.return_value = {
+        "email_1": {"key": [("email", 1)], "unique": True, "v": 2},
+    }
+    op = drop_index("users", "email_1")
+    op.apply(db)
+    db.reset_mock()
+    op.revert(db)
+    db["users"].create_index.assert_called_once_with([("email", 1)], unique=True)
+
+
+def test_drop_index_revert_raises_without_capture() -> None:
     db = _db()
     op = drop_index("users", "email_1")
     with pytest.raises(NotImplementedError):
