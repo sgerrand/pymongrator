@@ -18,6 +18,7 @@ from typing import Literal, Protocol, runtime_checkable
 
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.collection import Collection
+from pymongo.errors import DuplicateKeyError
 
 from .exceptions import MigrationLockError
 from .migration import MigrationId, MigrationRecord
@@ -104,22 +105,25 @@ class SyncMigrationLock:
     def acquire(self) -> None:
         """Acquire the lock or raise MigrationLockError."""
         now = datetime.now(tz=UTC)
-        result = self._col.find_one_and_update(
-            {
-                "_id": _LOCK_ID,
-                "$or": [{"locked": False}, {"expires_at": {"$lt": now}}],
-            },
-            {
-                "$set": {
-                    "locked": True,
-                    "locked_by": f"{os.getpid()}@{platform.node()}",
-                    "locked_at": now,
-                    "expires_at": now + _LOCK_TTL,
+        try:
+            result = self._col.find_one_and_update(
+                {
+                    "_id": _LOCK_ID,
+                    "$or": [{"locked": False}, {"expires_at": {"$lt": now}}],
                 },
-            },
-            upsert=True,
-            return_document=True,
-        )
+                {
+                    "$set": {
+                        "locked": True,
+                        "locked_by": f"{os.getpid()}@{platform.node()}",
+                        "locked_at": now,
+                        "expires_at": now + _LOCK_TTL,
+                    },
+                },
+                upsert=True,
+                return_document=True,
+            )
+        except DuplicateKeyError:
+            raise MigrationLockError from None
         if result is None:
             raise MigrationLockError
 
@@ -144,22 +148,25 @@ class AsyncMigrationLock:
     async def acquire(self) -> None:
         """Acquire the lock or raise MigrationLockError."""
         now = datetime.now(tz=UTC)
-        result = await self._col.find_one_and_update(
-            {
-                "_id": _LOCK_ID,
-                "$or": [{"locked": False}, {"expires_at": {"$lt": now}}],
-            },
-            {
-                "$set": {
-                    "locked": True,
-                    "locked_by": f"{os.getpid()}@{platform.node()}",
-                    "locked_at": now,
-                    "expires_at": now + _LOCK_TTL,
+        try:
+            result = await self._col.find_one_and_update(
+                {
+                    "_id": _LOCK_ID,
+                    "$or": [{"locked": False}, {"expires_at": {"$lt": now}}],
                 },
-            },
-            upsert=True,
-            return_document=True,
-        )
+                {
+                    "$set": {
+                        "locked": True,
+                        "locked_by": f"{os.getpid()}@{platform.node()}",
+                        "locked_at": now,
+                        "expires_at": now + _LOCK_TTL,
+                    },
+                },
+                upsert=True,
+                return_document=True,
+            )
+        except DuplicateKeyError:
+            raise MigrationLockError from None
         if result is None:
             raise MigrationLockError
 
