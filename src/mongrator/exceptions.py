@@ -65,6 +65,16 @@ class MigrationNotFoundError(MigratorError):
         super().__init__(f"Migration not found: '{migration_id}'")
 
 
+class ReservedMigrationIdError(MigratorError):
+    """A migration file uses a reserved internal ID."""
+
+    def __init__(self, migration_id: str) -> None:
+        self.migration_id = migration_id
+        super().__init__(
+            f"Migration ID '{migration_id}' is reserved for internal use. Please rename the migration file."
+        )
+
+
 class MigrationLockError(MigratorError):
     """Could not acquire the migration lock."""
 

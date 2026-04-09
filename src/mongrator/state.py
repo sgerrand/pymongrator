@@ -24,6 +24,7 @@ from .exceptions import MigrationLockError
 from .migration import MigrationId, MigrationRecord
 
 _LOCK_ID = "_mongrator_lock"
+RESERVED_IDS: frozenset[str] = frozenset({_LOCK_ID})
 _LOCK_TTL = timedelta(minutes=10)
 
 
