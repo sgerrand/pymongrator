@@ -12,6 +12,7 @@ The tracking collection stores one document per applied migration::
 """
 
 import os
+import platform
 from datetime import UTC, datetime, timedelta
 from typing import Literal, Protocol, runtime_checkable
 
@@ -111,7 +112,7 @@ class SyncMigrationLock:
             {
                 "$set": {
                     "locked": True,
-                    "locked_by": f"{os.getpid()}@{os.uname().nodename}",
+                    "locked_by": f"{os.getpid()}@{platform.node()}",
                     "locked_at": now,
                     "expires_at": now + _LOCK_TTL,
                 },
@@ -151,7 +152,7 @@ class AsyncMigrationLock:
             {
                 "$set": {
                     "locked": True,
-                    "locked_by": f"{os.getpid()}@{os.uname().nodename}",
+                    "locked_by": f"{os.getpid()}@{platform.node()}",
                     "locked_at": now,
                     "expires_at": now + _LOCK_TTL,
                 },
