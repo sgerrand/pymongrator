@@ -23,6 +23,17 @@ from .config import MigratorConfig
 from .exceptions import MigratorError
 
 
+def _positive_int(value: str) -> int:
+    """Argparse type that accepts only positive integers (>= 1)."""
+    try:
+        n = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"invalid int value: '{value}'")
+    if n < 1:
+        raise argparse.ArgumentTypeError(f"steps must be >= 1, got {n}")
+    return n
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="mongrator",
@@ -57,7 +68,7 @@ def _build_parser() -> argparse.ArgumentParser:
     # down
     p_down = sub.add_parser("down", help="roll back applied migrations")
     p_down.add_argument(
-        "--steps", type=int, default=1, metavar="N", help="number of migrations to roll back (default: 1)"
+        "--steps", type=_positive_int, default=1, metavar="N", help="number of migrations to roll back (default: 1)"
     )
     p_down.add_argument("--async", dest="use_async", action="store_true", help="use async runner")
     p_down.add_argument(

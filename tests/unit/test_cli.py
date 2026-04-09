@@ -146,6 +146,14 @@ def test_down_invalid_steps_type_exits() -> None:
     parse_fails("down", "--steps", "not_a_number")
 
 
+def test_down_zero_steps_exits() -> None:
+    parse_fails("down", "--steps", "0")
+
+
+def test_down_negative_steps_exits() -> None:
+    parse_fails("down", "--steps", "-1")
+
+
 # ---------------------------------------------------------------------------
 # validate
 # ---------------------------------------------------------------------------
