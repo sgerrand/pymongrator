@@ -65,12 +65,18 @@ jobs:
           uv run pytest tests/unit/
           --tb=short
           --junit-xml=reports/junit-unit.xml
+          --cov=mongrator
+          --cov-report=term-missing
+          --cov-report=xml:reports/coverage-unit.xml
 
       - name: Integration tests
         run: >-
           uv run pytest tests/integration/
           --tb=short
           --junit-xml=reports/junit-integration.xml
+          --cov=mongrator
+          --cov-report=term-missing
+          --cov-report=xml:reports/coverage-integration.xml
 
       - name: Upload test reports
         if: always()
