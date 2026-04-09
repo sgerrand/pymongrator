@@ -1,0 +1,3 @@
+# mongrator.migration
+
+::: mongrator.migration

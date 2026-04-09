@@ -1,0 +1,3 @@
+# mongrator.config
+
+::: mongrator.config

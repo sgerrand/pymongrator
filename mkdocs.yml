@@ -1,0 +1,43 @@
+site_name: mongrator
+site_description: Lightweight MongoDB schema migration tool
+site_url: https://mongrator.readthedocs.io
+repo_url: https://github.com/sgerrand/pymongrator
+repo_name: sgerrand/pymongrator
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Writing migrations: writing-migrations.md
+  - CLI reference: cli.md
+  - Configuration: configuration.md
+  - API reference:
+      - api/config.md
+      - api/runner.md
+      - api/ops.md
+      - api/migration.md
+      - api/state.md
+      - api/planner.md
+      - api/loader.md
+      - api/exceptions.md
+
+theme:
+  name: zensical
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_source: true
+            show_root_heading: true
+            members_order: source
+
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true

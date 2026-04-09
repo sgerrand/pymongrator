@@ -34,11 +34,17 @@ dev = [
     "ty>=0.0.20",
     "ruff>=0.9",
 ]
+docs = [
+    "mkdocstrings[python]",
+    "pymdown-extensions",
+    "zensical",
+]
 
 [project.scripts]
 mongrator = "mongrator:main"
 
 [project.urls]
+Documentation = "https://mongrator.readthedocs.io/"
 Homepage = "https://github.com/sgerrand/pymongrator"
 Repository = "https://github.com/sgerrand/pymongrator"
 "Bug Tracker" = "https://github.com/sgerrand/pymongrator/issues"
