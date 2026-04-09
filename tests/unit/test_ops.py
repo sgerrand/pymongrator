@@ -243,6 +243,12 @@ def test_create_collection_apply() -> None:
     db.create_collection.assert_called_once_with("audit_log")
 
 
+def test_create_collection_description_with_kwargs() -> None:
+    op = create_collection("audit_log", capped=True, size=1048576)
+    assert "capped=True" in op.description
+    assert "size=1048576" in op.description
+
+
 def test_create_collection_apply_with_kwargs() -> None:
     db = _db()
     op = create_collection("audit_log", capped=True, size=1048576)

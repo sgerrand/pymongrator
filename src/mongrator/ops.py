@@ -167,7 +167,10 @@ def create_collection(collection: str, **kwargs: Any) -> Operation:
         db.drop_collection(collection)
 
     return Operation(
-        description=f"create_collection({collection!r})",
+        description="create_collection({!r}{})".format(
+            collection,
+            ", " + ", ".join(f"{k}={v!r}" for k, v in kwargs.items()) if kwargs else "",
+        ),
         _apply=apply,
         _revert=revert,
     )
