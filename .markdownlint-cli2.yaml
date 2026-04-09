@@ -7,3 +7,6 @@ config:
 globs:
   - "*.md"
   - "docs/*.md"
+
+ignores:
+  - "CHANGELOG.md"
