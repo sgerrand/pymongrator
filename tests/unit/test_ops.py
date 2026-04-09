@@ -129,6 +129,23 @@ def test_drop_index_revert_raises_without_capture() -> None:
         op.revert(db)
 
 
+def test_drop_index_double_apply_clears_stale_spec() -> None:
+    """A second apply() where the index is gone must not leave stale captured state."""
+    db = _db()
+    # First apply captures the spec
+    db["users"].index_information.return_value = {
+        "email_1": {"key": [("email", 1)], "unique": True, "v": 2},
+    }
+    op = drop_index("users", "email_1")
+    op.apply(db)
+    # Second apply — index no longer exists
+    db["users"].index_information.return_value = {}
+    op.apply(db)
+    # revert should fail because captured spec was cleared
+    with pytest.raises(NotImplementedError):
+        op.revert(db)
+
+
 def test_drop_index_stateless_revert_with_keys() -> None:
     """When keys are supplied, revert recreates the index without needing apply()."""
     db = _db()

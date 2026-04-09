@@ -82,6 +82,7 @@ def drop_index(
 
     def apply(db: Database) -> None:  # type: ignore[type-arg]
         if keys is None:
+            _captured_spec.clear()
             indexes = db[collection].index_information()
             if index_name in indexes:
                 info = indexes[index_name]
