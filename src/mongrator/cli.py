@@ -156,13 +156,15 @@ def _cmd_up(args: argparse.Namespace) -> int:
 
 
 async def _async_up(config: MigratorConfig, target: str | None) -> int:
+    import pymongo
     from pymongo import AsyncMongoClient
 
     from .runner import AsyncRunner
 
-    async with AsyncMongoClient(config.uri) as client:
-        runner = AsyncRunner(client, config)
-        applied = await runner.up(target=target)
+    with pymongo.MongoClient(config.uri) as sync_client:
+        async with AsyncMongoClient(config.uri) as client:
+            runner = AsyncRunner(client, config, sync_client=sync_client)
+            applied = await runner.up(target=target)
     if applied:
         for mid in applied:
             print(f"  applied  {mid}")
@@ -191,13 +193,15 @@ def _cmd_down(args: argparse.Namespace) -> int:
 
 
 async def _async_down(config: MigratorConfig, steps: int) -> int:
+    import pymongo
     from pymongo import AsyncMongoClient
 
     from .runner import AsyncRunner
 
-    async with AsyncMongoClient(config.uri) as client:
-        runner = AsyncRunner(client, config)
-        rolled_back = await runner.down(steps=steps)
+    with pymongo.MongoClient(config.uri) as sync_client:
+        async with AsyncMongoClient(config.uri) as client:
+            runner = AsyncRunner(client, config, sync_client=sync_client)
+            rolled_back = await runner.down(steps=steps)
     if rolled_back:
         for mid in rolled_back:
             print(f"  rolled back  {mid}")
