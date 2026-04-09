@@ -1,73 +1,70 @@
+[build-system]
+build-backend = "uv_build"
+
+requires = [ "uv-build>=0.8.20,<0.9" ]
+
 [project]
 name = "mongrator"
 version = "0.2.1"
 description = "Lightweight MongoDB schema migration tool"
 readme = "README.md"
+keywords = [ "database", "migration", "mongodb", "pymongo", "schema" ]
 license = "BSD-2-Clause"
-license-files = ["LICENSE"]
+license-files = [ "LICENSE" ]
 authors = [
-    { name = "Sasha Gerrand", email = "mongrator@sgerrand.dev" }
+  { name = "Sasha Gerrand", email = "mongrator@sgerrand.dev" },
 ]
-classifiers = [
-    "Development Status :: 4 - Beta",
-    "Environment :: Console",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: BSD License",
-    "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.13",
-    "Topic :: Database",
-    "Typing :: Typed",
-    "Framework :: AsyncIO",
-]
-keywords = ["mongodb", "migration", "schema", "pymongo", "database"]
 requires-python = ">=3.13"
-dependencies = [
-    "pymongo>=4.10",
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Framework :: AsyncIO",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: BSD License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Database",
+  "Typing :: Typed",
 ]
+dependencies = [
+  "pymongo>=4.10",
+]
+
+urls."Bug Tracker" = "https://github.com/sgerrand/pymongrator/issues"
+urls.Changelog = "https://github.com/sgerrand/pymongrator/blob/main/CHANGELOG.md"
+urls.Documentation = "https://mongrator.readthedocs.io/"
+urls.Homepage = "https://github.com/sgerrand/pymongrator"
+urls.Repository = "https://github.com/sgerrand/pymongrator"
+scripts.mongrator = "mongrator:main"
 
 [dependency-groups]
 dev = [
-    "pre-commit>=4.2",
-    "pytest>=8.3",
-    "pytest-asyncio>=0.24",
-    "pytest-cov>=6.0",
-    "testcontainers[mongodb]>=4.0",
-    "ty>=0.0.20",
-    "ruff>=0.9",
+  "pre-commit>=4.2",
+  "pytest>=8.3",
+  "pytest-asyncio>=0.24",
+  "pytest-cov>=6",
+  "ruff>=0.9",
+  "testcontainers[mongodb]>=4",
+  "ty>=0.0.20",
 ]
 docs = [
-    "mkdocstrings[python]",
-    "pymdown-extensions",
-    "zensical",
+  "mkdocstrings[python]",
+  "pymdown-extensions",
+  "zensical",
 ]
 
-[project.scripts]
-mongrator = "mongrator:main"
+[tool.ruff]
+line-length = 120
 
-[project.urls]
-Documentation = "https://mongrator.readthedocs.io/"
-Homepage = "https://github.com/sgerrand/pymongrator"
-Repository = "https://github.com/sgerrand/pymongrator"
-"Bug Tracker" = "https://github.com/sgerrand/pymongrator/issues"
-Changelog = "https://github.com/sgerrand/pymongrator/blob/main/CHANGELOG.md"
-
-[build-system]
-requires = ["uv_build>=0.8.20,<0.9.0"]
-build-backend = "uv_build"
+lint.select = [ "E", "F", "I", "UP" ]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 
 [tool.coverage.run]
-source = ["mongrator"]
-omit = ["tests/*"]
+source = [ "mongrator" ]
+omit = [ "tests/*" ]
 
 [tool.coverage.report]
 show_missing = true
-
-[tool.ruff]
-line-length = 120
-
-[tool.ruff.lint]
-select = ["E", "F", "I", "UP"]
