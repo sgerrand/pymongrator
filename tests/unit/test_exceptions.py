@@ -8,6 +8,7 @@ from mongrator.exceptions import (
     DuplicateMigrationIdError,
     InvalidMigrationFileError,
     MigrationImportError,
+    MigrationLockError,
     MigrationNotFoundError,
     MigratorError,
     NoDownMethodError,
@@ -23,6 +24,7 @@ def test_all_errors_are_migrator_errors() -> None:
         InvalidMigrationFileError,
         NoDownMethodError,
         MigrationNotFoundError,
+        MigrationLockError,
     ):
         assert issubclass(cls, MigratorError)
 
@@ -68,6 +70,12 @@ def test_migration_not_found_attributes() -> None:
     err = MigrationNotFoundError("999_missing")
     assert err.migration_id == "999_missing"
     assert "999_missing" in str(err)
+
+
+def test_migration_lock_error() -> None:
+    err = MigrationLockError()
+    assert "lock" in str(err).lower()
+    assert isinstance(err, MigratorError)
 
 
 def test_errors_are_catchable_as_base() -> None:

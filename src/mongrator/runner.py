@@ -17,7 +17,7 @@ from .exceptions import ChecksumMismatchError, NoDownMethodError
 from .migration import MigrationFile, MigrationId, MigrationStatus
 from .ops import Operation
 from .planner import MigrationPlan
-from .state import AsyncMongoStateStore, SyncStateStore, make_record
+from .state import AsyncMigrationLock, AsyncMongoStateStore, SyncMigrationLock, SyncStateStore, make_record
 
 
 @runtime_checkable
@@ -86,6 +86,7 @@ class SyncRunner:
     def __init__(self, client: "MongoClient", config: MigratorConfig) -> None:  # type: ignore[type-arg]
         self._db = client[config.database]
         self._store = SyncStateStore(self._db[config.collection])
+        self._lock = SyncMigrationLock(self._db[config.collection])
         self._config = config
 
     def plan_up(self, target: MigrationId | None = None) -> MigrationPlan:
@@ -102,31 +103,33 @@ class SyncRunner:
 
     def up(self, target: MigrationId | None = None) -> list[MigrationId]:
         """Apply pending migrations, optionally up to `target`."""
-        files = loader.load(self._config)
-        applied = self._store.get_applied()
-        plan = planner.plan_up(files, applied, target)
-        applied_ids: list[MigrationId] = []
-        for migration in plan.to_apply:
-            start = time.monotonic()
-            _run_up_migration(migration, self._db)
-            duration_ms = int((time.monotonic() - start) * 1000)
-            self._store.record_applied(make_record(migration.id, migration.checksum, "up", duration_ms))
-            applied_ids.append(migration.id)
-        return applied_ids
+        with self._lock:
+            files = loader.load(self._config)
+            applied = self._store.get_applied()
+            plan = planner.plan_up(files, applied, target)
+            applied_ids: list[MigrationId] = []
+            for migration in plan.to_apply:
+                start = time.monotonic()
+                _run_up_migration(migration, self._db)
+                duration_ms = int((time.monotonic() - start) * 1000)
+                self._store.record_applied(make_record(migration.id, migration.checksum, "up", duration_ms))
+                applied_ids.append(migration.id)
+            return applied_ids
 
     def down(self, steps: int = 1) -> list[MigrationId]:
         """Roll back the most recently applied migrations."""
-        files = loader.load(self._config)
-        applied = self._store.get_applied()
-        plan = planner.plan_down(files, applied, steps)
-        rolled_back: list[MigrationId] = []
-        for migration in plan.to_apply:
-            start = time.monotonic()
-            _run_down_migration(migration, self._db)
-            duration_ms = int((time.monotonic() - start) * 1000)
-            self._store.record_applied(make_record(migration.id, migration.checksum, "down", duration_ms))
-            rolled_back.append(migration.id)
-        return rolled_back
+        with self._lock:
+            files = loader.load(self._config)
+            applied = self._store.get_applied()
+            plan = planner.plan_down(files, applied, steps)
+            rolled_back: list[MigrationId] = []
+            for migration in plan.to_apply:
+                start = time.monotonic()
+                _run_down_migration(migration, self._db)
+                duration_ms = int((time.monotonic() - start) * 1000)
+                self._store.record_applied(make_record(migration.id, migration.checksum, "down", duration_ms))
+                rolled_back.append(migration.id)
+            return rolled_back
 
     def status(self) -> list[MigrationStatus]:
         """Return the status of every known migration."""
@@ -182,6 +185,7 @@ class AsyncRunner:
         # Async store for non-blocking state tracking.
         async_db = client[config.database]
         self._store = AsyncMongoStateStore(async_db[config.collection])
+        self._lock = AsyncMigrationLock(async_db[config.collection])
         self._config = config
 
     async def plan_up(self, target: MigrationId | None = None) -> MigrationPlan:
@@ -198,31 +202,33 @@ class AsyncRunner:
 
     async def up(self, target: MigrationId | None = None) -> list[MigrationId]:
         """Apply pending migrations, optionally up to `target`."""
-        files = loader.load(self._config)
-        applied = await self._store.get_applied()
-        plan = planner.plan_up(files, applied, target)
-        applied_ids: list[MigrationId] = []
-        for migration in plan.to_apply:
-            start = time.monotonic()
-            _run_up_migration(migration, self._db)
-            duration_ms = int((time.monotonic() - start) * 1000)
-            await self._store.record_applied(make_record(migration.id, migration.checksum, "up", duration_ms))
-            applied_ids.append(migration.id)
-        return applied_ids
+        async with self._lock:
+            files = loader.load(self._config)
+            applied = await self._store.get_applied()
+            plan = planner.plan_up(files, applied, target)
+            applied_ids: list[MigrationId] = []
+            for migration in plan.to_apply:
+                start = time.monotonic()
+                _run_up_migration(migration, self._db)
+                duration_ms = int((time.monotonic() - start) * 1000)
+                await self._store.record_applied(make_record(migration.id, migration.checksum, "up", duration_ms))
+                applied_ids.append(migration.id)
+            return applied_ids
 
     async def down(self, steps: int = 1) -> list[MigrationId]:
         """Roll back the most recently applied migrations."""
-        files = loader.load(self._config)
-        applied = await self._store.get_applied()
-        plan = planner.plan_down(files, applied, steps)
-        rolled_back: list[MigrationId] = []
-        for migration in plan.to_apply:
-            start = time.monotonic()
-            _run_down_migration(migration, self._db)
-            duration_ms = int((time.monotonic() - start) * 1000)
-            await self._store.record_applied(make_record(migration.id, migration.checksum, "down", duration_ms))
-            rolled_back.append(migration.id)
-        return rolled_back
+        async with self._lock:
+            files = loader.load(self._config)
+            applied = await self._store.get_applied()
+            plan = planner.plan_down(files, applied, steps)
+            rolled_back: list[MigrationId] = []
+            for migration in plan.to_apply:
+                start = time.monotonic()
+                _run_down_migration(migration, self._db)
+                duration_ms = int((time.monotonic() - start) * 1000)
+                await self._store.record_applied(make_record(migration.id, migration.checksum, "down", duration_ms))
+                rolled_back.append(migration.id)
+            return rolled_back
 
     async def status(self) -> list[MigrationStatus]:
         """Return the status of every known migration."""

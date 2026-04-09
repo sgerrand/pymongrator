@@ -9,8 +9,10 @@ from .exceptions import (
     DuplicateMigrationIdError,
     InvalidMigrationFileError,
     MigrationImportError,
+    ReservedMigrationIdError,
 )
 from .migration import Checksum, MigrationFile, MigrationId
+from .state import RESERVED_IDS
 
 
 def _checksum(path: Path) -> Checksum:
@@ -43,6 +45,8 @@ def load(config: MigratorConfig) -> list[MigrationFile]:
     for path in paths:
         migration_id = _migration_id(path)
 
+        if migration_id in RESERVED_IDS:
+            raise ReservedMigrationIdError(migration_id)
         if migration_id in seen:
             raise DuplicateMigrationIdError(migration_id)
         seen[migration_id] = path
