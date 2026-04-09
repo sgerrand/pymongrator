@@ -16,6 +16,9 @@ from datetime import UTC, datetime
 from importlib.resources import files
 from pathlib import Path
 
+import pymongo
+from pymongo import AsyncMongoClient
+
 from .config import MigratorConfig
 from .exceptions import MigratorError
 
@@ -57,7 +60,9 @@ def _build_parser() -> argparse.ArgumentParser:
         "--steps", type=int, default=1, metavar="N", help="number of migrations to roll back (default: 1)"
     )
     p_down.add_argument("--async", dest="use_async", action="store_true", help="use async runner")
-    p_down.add_argument("--dry-run", action="store_true", help="show which migrations would be rolled back without executing")
+    p_down.add_argument(
+        "--dry-run", action="store_true", help="show which migrations would be rolled back without executing"
+    )
 
     # validate
     sub.add_parser("validate", help="verify checksums of applied migration files")
@@ -112,12 +117,6 @@ def _cmd_status(args: argparse.Namespace) -> int:
     from .runner import SyncRunner
 
     config = _load_config(args)
-    try:
-        import pymongo
-    except ImportError:
-        print("error: pymongo is required. Install with: pip install pymongo", file=sys.stderr)
-        return 1
-
     with pymongo.MongoClient(config.uri) as client:
         runner = SyncRunner(client, config)
         statuses = runner.status()
@@ -142,8 +141,6 @@ def _cmd_up(args: argparse.Namespace) -> int:
     config = _load_config(args)
     if args.use_async:
         return asyncio.run(_async_up(config, args.target, dry_run=args.dry_run))
-    import pymongo
-
     from .runner import SyncRunner
 
     with pymongo.MongoClient(config.uri) as client:
@@ -167,9 +164,6 @@ def _cmd_up(args: argparse.Namespace) -> int:
 
 
 async def _async_up(config: MigratorConfig, target: str | None, *, dry_run: bool = False) -> int:
-    import pymongo
-    from pymongo import AsyncMongoClient
-
     from .runner import AsyncRunner
 
     with pymongo.MongoClient(config.uri) as sync_client:
@@ -197,8 +191,6 @@ def _cmd_down(args: argparse.Namespace) -> int:
     config = _load_config(args)
     if args.use_async:
         return asyncio.run(_async_down(config, args.steps, dry_run=args.dry_run))
-    import pymongo
-
     from .runner import SyncRunner
 
     with pymongo.MongoClient(config.uri) as client:
@@ -222,9 +214,6 @@ def _cmd_down(args: argparse.Namespace) -> int:
 
 
 async def _async_down(config: MigratorConfig, steps: int, *, dry_run: bool = False) -> int:
-    import pymongo
-    from pymongo import AsyncMongoClient
-
     from .runner import AsyncRunner
 
     with pymongo.MongoClient(config.uri) as sync_client:
@@ -249,8 +238,6 @@ async def _async_down(config: MigratorConfig, steps: int, *, dry_run: bool = Fal
 
 
 def _cmd_validate(args: argparse.Namespace) -> int:
-    import pymongo
-
     from .runner import SyncRunner
 
     config = _load_config(args)
