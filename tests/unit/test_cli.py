@@ -1,8 +1,24 @@
-"""Unit tests for mongrator.cli — argument parsing only, no runner invocation."""
+"""Unit tests for mongrator.cli — argument parsing and command handlers."""
+
+from datetime import UTC, datetime
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from mongrator.cli import _build_parser
+from mongrator.cli import (
+    _build_parser,
+    _cmd_create,
+    _cmd_down,
+    _cmd_init,
+    _cmd_status,
+    _cmd_up,
+    _cmd_validate,
+    _load_config,
+    main,
+)
+from mongrator.exceptions import ChecksumMismatchError, MigratorError
+from mongrator.migration import MigrationStatus
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -162,3 +178,234 @@ def test_down_negative_steps_exits() -> None:
 def test_validate_command() -> None:
     ns = parse("validate")
     assert ns.command == "validate"
+
+
+# ---------------------------------------------------------------------------
+# _load_config
+# ---------------------------------------------------------------------------
+
+
+def test_load_config_from_toml(tmp_path: Path) -> None:
+    config_file = tmp_path / "mongrator.toml"
+    config_file.write_text('[mongrator]\nuri = "mongodb://localhost:27017"\ndatabase = "testdb"\n')
+    ns = parse("--config", str(config_file), "init")
+    config = _load_config(ns)
+    assert config.database == "testdb"
+
+
+def test_load_config_from_env_when_file_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MONGRATOR_URI", "mongodb://localhost:27017")
+    monkeypatch.setenv("MONGRATOR_DB", "envdb")
+    ns = parse("--config", "nonexistent.toml", "init")
+    config = _load_config(ns)
+    assert config.database == "envdb"
+
+
+# ---------------------------------------------------------------------------
+# _cmd_init
+# ---------------------------------------------------------------------------
+
+
+def test_cmd_init_creates_config_and_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    ns = parse("init")
+    rc = _cmd_init(ns)
+    assert rc == 0
+    assert (tmp_path / "mongrator.toml").exists()
+    assert (tmp_path / "migrations").is_dir()
+
+
+def test_cmd_init_does_not_overwrite_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_file = tmp_path / "mongrator.toml"
+    config_file.write_text("existing content")
+    ns = parse("init")
+    _cmd_init(ns)
+    assert config_file.read_text() == "existing content"
+
+
+# ---------------------------------------------------------------------------
+# _cmd_create
+# ---------------------------------------------------------------------------
+
+
+def test_cmd_create_generates_migration_file(tmp_path: Path) -> None:
+    config_file = tmp_path / "mongrator.toml"
+    migrations_dir = tmp_path / "migrations"
+    config_file.write_text(
+        f'[mongrator]\nuri = "mongodb://localhost"\ndatabase = "db"\nmigrations_dir = \'{migrations_dir.as_posix()}\'\n'
+    )
+    ns = parse("--config", str(config_file), "create", "add_users_index")
+    rc = _cmd_create(ns)
+    assert rc == 0
+    files = list(migrations_dir.glob("*.py"))
+    assert len(files) == 1
+    assert "add_users_index" in files[0].name
+
+
+# ---------------------------------------------------------------------------
+# _cmd_status
+# ---------------------------------------------------------------------------
+
+
+def test_cmd_status_no_migrations(capsys: pytest.CaptureFixture[str]) -> None:
+    mock_runner = MagicMock()
+    mock_runner.status.return_value = []
+    with (
+        patch("mongrator.cli._load_config"),
+        patch("pymongo.MongoClient", return_value=MagicMock()),
+        patch("mongrator.runner.SyncRunner", return_value=mock_runner),
+    ):
+        ns = parse("status")
+        rc = _cmd_status(ns)
+    assert rc == 0
+    assert "No migrations found" in capsys.readouterr().out
+
+
+def test_cmd_status_shows_applied_and_pending(capsys: pytest.CaptureFixture[str]) -> None:
+    statuses = [
+        MigrationStatus(id="001_a", applied=True, applied_at=datetime(2025, 1, 1, tzinfo=UTC)),
+        MigrationStatus(id="002_b", applied=False),
+    ]
+    mock_runner = MagicMock()
+    mock_runner.status.return_value = statuses
+    with (
+        patch("mongrator.cli._load_config"),
+        patch("pymongo.MongoClient", return_value=MagicMock()),
+        patch("mongrator.runner.SyncRunner", return_value=mock_runner),
+    ):
+        ns = parse("status")
+        rc = _cmd_status(ns)
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "001_a" in out
+    assert "applied" in out
+    assert "pending" in out
+
+
+# ---------------------------------------------------------------------------
+# _cmd_up
+# ---------------------------------------------------------------------------
+
+
+def test_cmd_up_applies_migrations(capsys: pytest.CaptureFixture[str]) -> None:
+    mock_runner = MagicMock()
+    mock_runner.up.return_value = ["001_a", "002_b"]
+    with (
+        patch("mongrator.cli._load_config"),
+        patch("pymongo.MongoClient", return_value=MagicMock()),
+        patch("mongrator.runner.SyncRunner", return_value=mock_runner),
+    ):
+        ns = parse("up")
+        rc = _cmd_up(ns)
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "001_a" in out
+    assert "002_b" in out
+
+
+def test_cmd_up_nothing_to_apply(capsys: pytest.CaptureFixture[str]) -> None:
+    mock_runner = MagicMock()
+    mock_runner.up.return_value = []
+    with (
+        patch("mongrator.cli._load_config"),
+        patch("pymongo.MongoClient", return_value=MagicMock()),
+        patch("mongrator.runner.SyncRunner", return_value=mock_runner),
+    ):
+        ns = parse("up")
+        rc = _cmd_up(ns)
+    assert rc == 0
+    assert "Nothing to apply" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------------
+# _cmd_down
+# ---------------------------------------------------------------------------
+
+
+def test_cmd_down_rolls_back(capsys: pytest.CaptureFixture[str]) -> None:
+    mock_runner = MagicMock()
+    mock_runner.down.return_value = ["002_b"]
+    with (
+        patch("mongrator.cli._load_config"),
+        patch("pymongo.MongoClient", return_value=MagicMock()),
+        patch("mongrator.runner.SyncRunner", return_value=mock_runner),
+    ):
+        ns = parse("down")
+        rc = _cmd_down(ns)
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "002_b" in out
+    assert "rolled back" in out
+
+
+def test_cmd_down_nothing_to_rollback(capsys: pytest.CaptureFixture[str]) -> None:
+    mock_runner = MagicMock()
+    mock_runner.down.return_value = []
+    with (
+        patch("mongrator.cli._load_config"),
+        patch("pymongo.MongoClient", return_value=MagicMock()),
+        patch("mongrator.runner.SyncRunner", return_value=mock_runner),
+    ):
+        ns = parse("down")
+        rc = _cmd_down(ns)
+    assert rc == 0
+    assert "Nothing to roll back" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------------
+# _cmd_validate
+# ---------------------------------------------------------------------------
+
+
+def test_cmd_validate_all_ok(capsys: pytest.CaptureFixture[str]) -> None:
+    mock_runner = MagicMock()
+    mock_runner.validate.return_value = []
+    with (
+        patch("mongrator.cli._load_config"),
+        patch("pymongo.MongoClient", return_value=MagicMock()),
+        patch("mongrator.runner.SyncRunner", return_value=mock_runner),
+    ):
+        ns = parse("validate")
+        rc = _cmd_validate(ns)
+    assert rc == 0
+    assert "valid checksums" in capsys.readouterr().out
+
+
+def test_cmd_validate_reports_mismatches(capsys: pytest.CaptureFixture[str]) -> None:
+    errors = [ChecksumMismatchError("001_a", "expected", "actual")]
+    mock_runner = MagicMock()
+    mock_runner.validate.return_value = errors
+    with (
+        patch("mongrator.cli._load_config"),
+        patch("pymongo.MongoClient", return_value=MagicMock()),
+        patch("mongrator.runner.SyncRunner", return_value=mock_runner),
+    ):
+        ns = parse("validate")
+        rc = _cmd_validate(ns)
+    assert rc == 1
+    assert "001_a" in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------------------
+# main
+# ---------------------------------------------------------------------------
+
+
+def test_main_dispatches_init(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("sys.argv", ["mongrator", "init"])
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+    assert exc_info.value.code == 0
+
+
+def test_main_handles_migrator_error(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setattr("sys.argv", ["mongrator", "status"])
+    with (
+        patch("mongrator.cli._load_config", side_effect=MigratorError("test error")),
+        pytest.raises(SystemExit) as exc_info,
+    ):
+        main()
+    assert exc_info.value.code == 1
+    assert "test error" in capsys.readouterr().err
