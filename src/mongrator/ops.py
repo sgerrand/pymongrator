@@ -139,7 +139,10 @@ def drop_field(
     query = filter or {}
 
     def apply(db: Database) -> None:  # type: ignore[type-arg]
-        db[collection].update_many(query, {"$unset": {field_name: ""}})
+        db[collection].update_many(
+            {**query, field_name: {"$exists": True}},
+            {"$unset": {field_name: ""}},
+        )
 
     def revert(db: Database) -> None:  # type: ignore[type-arg]
         raise NotImplementedError(

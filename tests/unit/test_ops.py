@@ -206,14 +206,16 @@ def test_drop_field_apply() -> None:
     db = _db()
     op = drop_field("users", "legacy_flag")
     op.apply(db)
-    db["users"].update_many.assert_called_once_with({}, {"$unset": {"legacy_flag": ""}})
+    db["users"].update_many.assert_called_once_with({"legacy_flag": {"$exists": True}}, {"$unset": {"legacy_flag": ""}})
 
 
 def test_drop_field_apply_with_filter() -> None:
     db = _db()
     op = drop_field("users", "legacy_flag", filter={"active": False})
     op.apply(db)
-    db["users"].update_many.assert_called_once_with({"active": False}, {"$unset": {"legacy_flag": ""}})
+    db["users"].update_many.assert_called_once_with(
+        {"active": False, "legacy_flag": {"$exists": True}}, {"$unset": {"legacy_flag": ""}}
+    )
 
 
 def test_drop_field_revert_raises() -> None:
