@@ -323,3 +323,76 @@ async def test_async_validate_detects_mismatch(tmp_path: Path) -> None:
         errors = await runner.validate()
 
     assert len(errors) == 1
+
+
+# ---------------------------------------------------------------------------
+# SyncRunner.plan_up / plan_down
+# ---------------------------------------------------------------------------
+
+
+def test_sync_plan_up_returns_pending(tmp_path: Path) -> None:
+    runner, db, store = _sync_runner(tmp_path)
+    migrations = [_migration("001_a"), _migration("002_b")]
+    store.get_applied.return_value = {"001_a"}
+
+    with patch("mongrator.runner.loader.load", return_value=migrations):
+        plan = runner.plan_up()
+
+    assert [m.id for m in plan.to_apply] == ["002_b"]
+    assert [m.id for m in plan.to_skip] == ["001_a"]
+    store.record_applied.assert_not_called()
+
+
+def test_sync_plan_up_with_target(tmp_path: Path) -> None:
+    runner, db, store = _sync_runner(tmp_path)
+    migrations = [_migration("001_a"), _migration("002_b"), _migration("003_c")]
+    store.get_applied.return_value = set()
+
+    with patch("mongrator.runner.loader.load", return_value=migrations):
+        plan = runner.plan_up(target="002_b")
+
+    assert [m.id for m in plan.to_apply] == ["001_a", "002_b"]
+
+
+def test_sync_plan_down_returns_rollback(tmp_path: Path) -> None:
+    runner, db, store = _sync_runner(tmp_path)
+    migrations = [_migration("001_a"), _migration("002_b")]
+    store.get_applied.return_value = {"001_a", "002_b"}
+
+    with patch("mongrator.runner.loader.load", return_value=migrations):
+        plan = runner.plan_down(steps=1)
+
+    assert [m.id for m in plan.to_apply] == ["002_b"]
+    store.record_applied.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# AsyncRunner.plan_up / plan_down
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_async_plan_up_returns_pending(tmp_path: Path) -> None:
+    runner, db, store = _async_runner(tmp_path)
+    migrations = [_migration("001_a"), _migration("002_b")]
+    store.get_applied.return_value = {"001_a"}
+
+    with patch("mongrator.runner.loader.load", return_value=migrations):
+        plan = await runner.plan_up()
+
+    assert [m.id for m in plan.to_apply] == ["002_b"]
+    assert [m.id for m in plan.to_skip] == ["001_a"]
+    store.record_applied.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_async_plan_down_returns_rollback(tmp_path: Path) -> None:
+    runner, db, store = _async_runner(tmp_path)
+    migrations = [_migration("001_a"), _migration("002_b")]
+    store.get_applied.return_value = {"001_a", "002_b"}
+
+    with patch("mongrator.runner.loader.load", return_value=migrations):
+        plan = await runner.plan_down(steps=1)
+
+    assert [m.id for m in plan.to_apply] == ["002_b"]
+    store.record_applied.assert_not_called()

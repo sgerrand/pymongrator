@@ -16,8 +16,23 @@ from datetime import UTC, datetime
 from importlib.resources import files
 from pathlib import Path
 
+import pymongo
+from pymongo import AsyncMongoClient
+
 from .config import MigratorConfig
 from .exceptions import MigratorError
+from .planner import MigrationPlan
+
+
+def _positive_int(value: str) -> int:
+    """Argparse type that accepts only positive integers (>= 1)."""
+    try:
+        n = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"invalid int value: '{value}'")
+    if n < 1:
+        raise argparse.ArgumentTypeError(f"steps must be >= 1, got {n}")
+    return n
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -49,18 +64,45 @@ def _build_parser() -> argparse.ArgumentParser:
     p_up = sub.add_parser("up", help="apply pending migrations")
     p_up.add_argument("--target", metavar="ID", help="apply only up to this migration ID")
     p_up.add_argument("--async", dest="use_async", action="store_true", help="use async runner")
+    p_up.add_argument("--dry-run", action="store_true", help="show which migrations would be applied without executing")
 
     # down
     p_down = sub.add_parser("down", help="roll back applied migrations")
     p_down.add_argument(
-        "--steps", type=int, default=1, metavar="N", help="number of migrations to roll back (default: 1)"
+        "--steps", type=_positive_int, default=1, metavar="N", help="number of migrations to roll back (default: 1)"
     )
     p_down.add_argument("--async", dest="use_async", action="store_true", help="use async runner")
+    p_down.add_argument(
+        "--dry-run", action="store_true", help="show which migrations would be rolled back without executing"
+    )
 
     # validate
     sub.add_parser("validate", help="verify checksums of applied migration files")
 
     return parser
+
+
+def _print_dry_run(plan: MigrationPlan, *, direction: str) -> None:
+    """Print a dry-run summary for a MigrationPlan.
+
+    Args:
+        plan: The computed migration plan.
+        direction: Either ``"up"`` or ``"down"``.
+    """
+    if direction == "up":
+        action, empty_msg = "apply", "Nothing to apply."
+        header = "Migrations that would be applied:"
+    else:
+        action, empty_msg = "rollback", "Nothing to roll back."
+        header = "Migrations that would be rolled back:"
+
+    if not plan.to_apply:
+        print(empty_msg)
+        return
+
+    print(header)
+    for m in plan.to_apply:
+        print(f"  {action}  {m.id}")
 
 
 def _load_config(args: argparse.Namespace) -> MigratorConfig:
@@ -110,12 +152,6 @@ def _cmd_status(args: argparse.Namespace) -> int:
     from .runner import SyncRunner
 
     config = _load_config(args)
-    try:
-        import pymongo
-    except ImportError:
-        print("error: pymongo is required. Install with: pip install pymongo", file=sys.stderr)
-        return 1
-
     with pymongo.MongoClient(config.uri) as client:
         runner = SyncRunner(client, config)
         statuses = runner.status()
@@ -139,13 +175,15 @@ def _cmd_status(args: argparse.Namespace) -> int:
 def _cmd_up(args: argparse.Namespace) -> int:
     config = _load_config(args)
     if args.use_async:
-        return asyncio.run(_async_up(config, args.target))
-    import pymongo
-
+        return asyncio.run(_async_up(config, args.target, dry_run=args.dry_run))
     from .runner import SyncRunner
 
     with pymongo.MongoClient(config.uri) as client:
         runner = SyncRunner(client, config)
+        if args.dry_run:
+            plan = runner.plan_up(target=args.target)
+            _print_dry_run(plan, direction="up")
+            return 0
         applied = runner.up(target=args.target)
     if applied:
         for mid in applied:
@@ -155,15 +193,16 @@ def _cmd_up(args: argparse.Namespace) -> int:
     return 0
 
 
-async def _async_up(config: MigratorConfig, target: str | None) -> int:
-    import pymongo
-    from pymongo import AsyncMongoClient
-
+async def _async_up(config: MigratorConfig, target: str | None, *, dry_run: bool = False) -> int:
     from .runner import AsyncRunner
 
     with pymongo.MongoClient(config.uri) as sync_client:
         async with AsyncMongoClient(config.uri) as client:
             runner = AsyncRunner(client, config, sync_client=sync_client)
+            if dry_run:
+                plan = await runner.plan_up(target=target)
+                _print_dry_run(plan, direction="up")
+                return 0
             applied = await runner.up(target=target)
     if applied:
         for mid in applied:
@@ -176,13 +215,15 @@ async def _async_up(config: MigratorConfig, target: str | None) -> int:
 def _cmd_down(args: argparse.Namespace) -> int:
     config = _load_config(args)
     if args.use_async:
-        return asyncio.run(_async_down(config, args.steps))
-    import pymongo
-
+        return asyncio.run(_async_down(config, args.steps, dry_run=args.dry_run))
     from .runner import SyncRunner
 
     with pymongo.MongoClient(config.uri) as client:
         runner = SyncRunner(client, config)
+        if args.dry_run:
+            plan = runner.plan_down(steps=args.steps)
+            _print_dry_run(plan, direction="down")
+            return 0
         rolled_back = runner.down(steps=args.steps)
     if rolled_back:
         for mid in rolled_back:
@@ -192,15 +233,16 @@ def _cmd_down(args: argparse.Namespace) -> int:
     return 0
 
 
-async def _async_down(config: MigratorConfig, steps: int) -> int:
-    import pymongo
-    from pymongo import AsyncMongoClient
-
+async def _async_down(config: MigratorConfig, steps: int, *, dry_run: bool = False) -> int:
     from .runner import AsyncRunner
 
     with pymongo.MongoClient(config.uri) as sync_client:
         async with AsyncMongoClient(config.uri) as client:
             runner = AsyncRunner(client, config, sync_client=sync_client)
+            if dry_run:
+                plan = await runner.plan_down(steps=steps)
+                _print_dry_run(plan, direction="down")
+                return 0
             rolled_back = await runner.down(steps=steps)
     if rolled_back:
         for mid in rolled_back:
@@ -211,8 +253,6 @@ async def _async_down(config: MigratorConfig, steps: int) -> int:
 
 
 def _cmd_validate(args: argparse.Namespace) -> int:
-    import pymongo
-
     from .runner import SyncRunner
 
     config = _load_config(args)
