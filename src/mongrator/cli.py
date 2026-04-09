@@ -21,6 +21,7 @@ from pymongo import AsyncMongoClient
 
 from .config import MigratorConfig
 from .exceptions import MigratorError
+from .planner import MigrationPlan
 
 
 def _positive_int(value: str) -> int:
@@ -79,6 +80,29 @@ def _build_parser() -> argparse.ArgumentParser:
     sub.add_parser("validate", help="verify checksums of applied migration files")
 
     return parser
+
+
+def _print_dry_run(plan: MigrationPlan, *, direction: str) -> None:
+    """Print a dry-run summary for a MigrationPlan.
+
+    Args:
+        plan: The computed migration plan.
+        direction: Either ``"up"`` or ``"down"``.
+    """
+    if direction == "up":
+        action, empty_msg = "apply", "Nothing to apply."
+        header = "Migrations that would be applied:"
+    else:
+        action, empty_msg = "rollback", "Nothing to roll back."
+        header = "Migrations that would be rolled back:"
+
+    if not plan.to_apply:
+        print(empty_msg)
+        return
+
+    print(header)
+    for m in plan.to_apply:
+        print(f"  {action}  {m.id}")
 
 
 def _load_config(args: argparse.Namespace) -> MigratorConfig:
@@ -158,12 +182,7 @@ def _cmd_up(args: argparse.Namespace) -> int:
         runner = SyncRunner(client, config)
         if args.dry_run:
             plan = runner.plan_up(target=args.target)
-            if plan.to_apply:
-                print("Migrations that would be applied:")
-                for m in plan.to_apply:
-                    print(f"  apply  {m.id}")
-            else:
-                print("Nothing to apply.")
+            _print_dry_run(plan, direction="up")
             return 0
         applied = runner.up(target=args.target)
     if applied:
@@ -182,12 +201,7 @@ async def _async_up(config: MigratorConfig, target: str | None, *, dry_run: bool
             runner = AsyncRunner(client, config, sync_client=sync_client)
             if dry_run:
                 plan = await runner.plan_up(target=target)
-                if plan.to_apply:
-                    print("Migrations that would be applied:")
-                    for m in plan.to_apply:
-                        print(f"  apply  {m.id}")
-                else:
-                    print("Nothing to apply.")
+                _print_dry_run(plan, direction="up")
                 return 0
             applied = await runner.up(target=target)
     if applied:
@@ -208,12 +222,7 @@ def _cmd_down(args: argparse.Namespace) -> int:
         runner = SyncRunner(client, config)
         if args.dry_run:
             plan = runner.plan_down(steps=args.steps)
-            if plan.to_apply:
-                print("Migrations that would be rolled back:")
-                for m in plan.to_apply:
-                    print(f"  rollback  {m.id}")
-            else:
-                print("Nothing to roll back.")
+            _print_dry_run(plan, direction="down")
             return 0
         rolled_back = runner.down(steps=args.steps)
     if rolled_back:
@@ -232,12 +241,7 @@ async def _async_down(config: MigratorConfig, steps: int, *, dry_run: bool = Fal
             runner = AsyncRunner(client, config, sync_client=sync_client)
             if dry_run:
                 plan = await runner.plan_down(steps=steps)
-                if plan.to_apply:
-                    print("Migrations that would be rolled back:")
-                    for m in plan.to_apply:
-                        print(f"  rollback  {m.id}")
-                else:
-                    print("Nothing to roll back.")
+                _print_dry_run(plan, direction="down")
                 return 0
             rolled_back = await runner.down(steps=steps)
     if rolled_back:
