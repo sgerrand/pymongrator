@@ -41,6 +41,7 @@ mongrator = "mongrator:main"
 Homepage = "https://github.com/sgerrand/mongrator"
 Repository = "https://github.com/sgerrand/mongrator"
 "Bug Tracker" = "https://github.com/sgerrand/mongrator/issues"
+Changelog = "https://github.com/sgerrand/mongrator/blob/main/CHANGELOG.md"
 
 [build-system]
 requires = ["uv_build>=0.8.20,<0.9.0"]
