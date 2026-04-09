@@ -233,7 +233,7 @@ def test_cmd_create_generates_migration_file(tmp_path: Path) -> None:
     config_file = tmp_path / "mongrator.toml"
     migrations_dir = tmp_path / "migrations"
     config_file.write_text(
-        f'[mongrator]\nuri = "mongodb://localhost"\ndatabase = "db"\nmigrations_dir = "{migrations_dir}"\n'
+        f'[mongrator]\nuri = "mongodb://localhost"\ndatabase = "db"\nmigrations_dir = \'{migrations_dir.as_posix()}\'\n'
     )
     ns = parse("--config", str(config_file), "create", "add_users_index")
     rc = _cmd_create(ns)
