@@ -63,3 +63,14 @@ class MigrationNotFoundError(MigratorError):
     def __init__(self, migration_id: str) -> None:
         self.migration_id = migration_id
         super().__init__(f"Migration not found: '{migration_id}'")
+
+
+class MigrationLockError(MigratorError):
+    """Could not acquire the migration lock."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "Could not acquire migration lock. "
+            "Another migration may be in progress. "
+            "If this is stale, the lock will expire automatically."
+        )

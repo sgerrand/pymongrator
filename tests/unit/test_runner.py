@@ -43,6 +43,7 @@ def _sync_runner(tmp_path: Path) -> tuple[SyncRunner, MagicMock, MagicMock]:
     config = _config(tmp_path)
     runner = SyncRunner(mock_client, config)
     runner._store = mock_store
+    runner._lock = MagicMock()
     return runner, mock_db, mock_store
 
 
@@ -55,6 +56,7 @@ def _async_runner(tmp_path: Path) -> tuple[AsyncRunner, MagicMock, AsyncMock]:
     config = _config(tmp_path)
     runner = AsyncRunner(mock_client, config)
     runner._store = mock_store
+    runner._lock = AsyncMock()
     return runner, mock_db, mock_store
 
 

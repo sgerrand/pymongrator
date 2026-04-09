@@ -5,7 +5,14 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from mongrator.state import AsyncMongoStateStore, SyncStateStore, make_record
+from mongrator.exceptions import MigrationLockError
+from mongrator.state import (
+    AsyncMigrationLock,
+    AsyncMongoStateStore,
+    SyncMigrationLock,
+    SyncStateStore,
+    make_record,
+)
 
 # ---------------------------------------------------------------------------
 # make_record
@@ -159,3 +166,85 @@ async def test_async_get_record_not_found() -> None:
     store, col = _async_store()
     col.find_one.return_value = None
     assert await store.get_record("999_missing") is None
+
+
+# ---------------------------------------------------------------------------
+# SyncMigrationLock
+# ---------------------------------------------------------------------------
+
+
+def test_sync_lock_acquire_success() -> None:
+    col = MagicMock()
+    col.find_one_and_update.return_value = {"_id": "_mongrator_lock", "locked": True}
+    lock = SyncMigrationLock(col)
+    lock.acquire()
+    col.find_one_and_update.assert_called_once()
+
+
+def test_sync_lock_acquire_fails_when_held() -> None:
+    col = MagicMock()
+    col.find_one_and_update.return_value = None
+    lock = SyncMigrationLock(col)
+    with pytest.raises(MigrationLockError):
+        lock.acquire()
+
+
+def test_sync_lock_release() -> None:
+    col = MagicMock()
+    lock = SyncMigrationLock(col)
+    lock.release()
+    col.update_one.assert_called_once()
+
+
+def test_sync_lock_context_manager() -> None:
+    col = MagicMock()
+    col.find_one_and_update.return_value = {"_id": "_mongrator_lock", "locked": True}
+    lock = SyncMigrationLock(col)
+    with lock:
+        pass
+    col.find_one_and_update.assert_called_once()
+    col.update_one.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# AsyncMigrationLock
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_async_lock_acquire_success() -> None:
+    col = MagicMock()
+    col.find_one_and_update = AsyncMock(return_value={"_id": "_mongrator_lock", "locked": True})
+    lock = AsyncMigrationLock(col)
+    await lock.acquire()
+    col.find_one_and_update.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_async_lock_acquire_fails_when_held() -> None:
+    col = MagicMock()
+    col.find_one_and_update = AsyncMock(return_value=None)
+    lock = AsyncMigrationLock(col)
+    with pytest.raises(MigrationLockError):
+        await lock.acquire()
+
+
+@pytest.mark.asyncio
+async def test_async_lock_release() -> None:
+    col = MagicMock()
+    col.update_one = AsyncMock()
+    lock = AsyncMigrationLock(col)
+    await lock.release()
+    col.update_one.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_async_lock_context_manager() -> None:
+    col = MagicMock()
+    col.find_one_and_update = AsyncMock(return_value={"_id": "_mongrator_lock", "locked": True})
+    col.update_one = AsyncMock()
+    lock = AsyncMigrationLock(col)
+    async with lock:
+        pass
+    col.find_one_and_update.assert_called_once()
+    col.update_one.assert_called_once()
