@@ -4,7 +4,16 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from mongrator.ops import Operation, add_field, create_index, drop_index, rename_field
+from mongrator.ops import (
+    Operation,
+    add_field,
+    create_collection,
+    create_index,
+    drop_collection,
+    drop_field,
+    drop_index,
+    rename_field,
+)
 
 
 def _db() -> MagicMock:
@@ -180,3 +189,92 @@ def test_add_field_revert_with_filter() -> None:
     op = add_field("users", "verified", False, filter={"role": "admin"})
     op.revert(db)
     db["users"].update_many.assert_called_once_with({"role": "admin"}, {"$unset": {"verified": ""}})
+
+
+# ---------------------------------------------------------------------------
+# drop_field
+# ---------------------------------------------------------------------------
+
+
+def test_drop_field_description() -> None:
+    op = drop_field("users", "legacy_flag")
+    assert "drop_field" in op.description
+    assert "legacy_flag" in op.description
+
+
+def test_drop_field_apply() -> None:
+    db = _db()
+    op = drop_field("users", "legacy_flag")
+    op.apply(db)
+    db["users"].update_many.assert_called_once_with({}, {"$unset": {"legacy_flag": ""}})
+
+
+def test_drop_field_apply_with_filter() -> None:
+    db = _db()
+    op = drop_field("users", "legacy_flag", filter={"active": False})
+    op.apply(db)
+    db["users"].update_many.assert_called_once_with({"active": False}, {"$unset": {"legacy_flag": ""}})
+
+
+def test_drop_field_revert_raises() -> None:
+    db = _db()
+    op = drop_field("users", "legacy_flag")
+    with pytest.raises(NotImplementedError):
+        op.revert(db)
+
+
+# ---------------------------------------------------------------------------
+# create_collection
+# ---------------------------------------------------------------------------
+
+
+def test_create_collection_description() -> None:
+    op = create_collection("audit_log")
+    assert "create_collection" in op.description
+    assert "audit_log" in op.description
+
+
+def test_create_collection_apply() -> None:
+    db = _db()
+    op = create_collection("audit_log")
+    op.apply(db)
+    db.create_collection.assert_called_once_with("audit_log")
+
+
+def test_create_collection_apply_with_kwargs() -> None:
+    db = _db()
+    op = create_collection("audit_log", capped=True, size=1048576)
+    op.apply(db)
+    db.create_collection.assert_called_once_with("audit_log", capped=True, size=1048576)
+
+
+def test_create_collection_revert_drops() -> None:
+    db = _db()
+    op = create_collection("audit_log")
+    op.revert(db)
+    db.drop_collection.assert_called_once_with("audit_log")
+
+
+# ---------------------------------------------------------------------------
+# drop_collection
+# ---------------------------------------------------------------------------
+
+
+def test_drop_collection_description() -> None:
+    op = drop_collection("old_logs")
+    assert "drop_collection" in op.description
+    assert "old_logs" in op.description
+
+
+def test_drop_collection_apply() -> None:
+    db = _db()
+    op = drop_collection("old_logs")
+    op.apply(db)
+    db.drop_collection.assert_called_once_with("old_logs")
+
+
+def test_drop_collection_revert_raises() -> None:
+    db = _db()
+    op = drop_collection("old_logs")
+    with pytest.raises(NotImplementedError):
+        op.revert(db)
