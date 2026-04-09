@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.1](https://github.com/sgerrand/pymongrator/compare/v0.2.0...v0.2.1) (2026-04-09)
+
+
+### Bug Fixes
+
+* Correct project URLs to match repository name ([#6](https://github.com/sgerrand/pymongrator/issues/6)) ([3f4d006](https://github.com/sgerrand/pymongrator/commit/3f4d006a2b420809afe700a224b6eb2307e10a73))
+* **docs:** Create HTML output directory before copying site files ([#9](https://github.com/sgerrand/pymongrator/issues/9)) ([2340c12](https://github.com/sgerrand/pymongrator/commit/2340c12f8ad89c229141802a954f3fb053e49206))
+
+
+### Documentation
+
+* Add documentation site with Zensical and Read the Docs ([#8](https://github.com/sgerrand/pymongrator/issues/8)) ([e14077f](https://github.com/sgerrand/pymongrator/commit/e14077f0fd81c496492f92aff87362625b492d3b))
+
 ## [0.2.0](https://github.com/sgerrand/pymongrator/compare/v0.1.0...v0.2.0) (2026-04-08)
 
 ### Bug Fixes

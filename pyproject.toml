@@ -1,6 +1,6 @@
 [project]
 name = "mongrator"
-version = "0.2.0"
+version = "0.2.1"
 description = "Lightweight MongoDB schema migration tool"
 readme = "README.md"
 license = "BSD-2-Clause"
