@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.3.0](https://github.com/sgerrand/pymongrator/compare/v0.2.1...v0.3.0) (2026-04-10)
+
+
+### Features
+
+* Add --dry-run flag to up and down commands ([#12](https://github.com/sgerrand/pymongrator/issues/12)) ([a144142](https://github.com/sgerrand/pymongrator/commit/a144142caa29682e3d8f40d7937cfa4c9cacdb2f))
+* Add advisory locking to prevent concurrent migrations ([#16](https://github.com/sgerrand/pymongrator/issues/16)) ([e4d7d2b](https://github.com/sgerrand/pymongrator/commit/e4d7d2bec0a042965e0cd13dcb9352c092ac8978))
+* Add auto-revert support to drop_index ([#17](https://github.com/sgerrand/pymongrator/issues/17)) ([8b8f3c7](https://github.com/sgerrand/pymongrator/commit/8b8f3c70a42346c64b88cd64df4fd8625637a6d2))
+* Add drop_field, create_collection, and drop_collection ops ([#15](https://github.com/sgerrand/pymongrator/issues/15)) ([b1ec730](https://github.com/sgerrand/pymongrator/commit/b1ec73012292efd141b84049987392548b3e6aa6))
+
+
+### Bug Fixes
+
+* Close MongoClient connections in CLI commands ([#10](https://github.com/sgerrand/pymongrator/issues/10)) ([d5a20d1](https://github.com/sgerrand/pymongrator/commit/d5a20d1f877e984c681cfc5c90d12fd0f29fe05b))
+
 ## [0.2.1](https://github.com/sgerrand/pymongrator/compare/v0.2.0...v0.2.1) (2026-04-09)
 
 
