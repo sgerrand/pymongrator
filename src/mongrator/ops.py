@@ -84,13 +84,11 @@ def drop_index(
     Operation instance that ran apply().
     """
     # Normalize dict keys to the list-of-tuples form pymongo expects.
-    _norm_keys: list[tuple[str, int | str]] | None
+    _norm_keys: list[tuple[str, int | str]] | None = None
     if isinstance(keys, dict):
-        _norm_keys = list(keys.items())
+        _norm_keys = [(k, v) for k, v in keys.items()]  # ty: ignore[invalid-assignment]
     elif keys is not None:
         _norm_keys = list(keys)
-    else:
-        _norm_keys = None
 
     _captured_spec: dict[str, Any] = {}
     # index_name is authoritative; drop any conflicting name from kwargs.
