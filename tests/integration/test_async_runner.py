@@ -164,6 +164,39 @@ async def test_down_ops_auto_rollback_drops_index(runner: AsyncRunner, migration
     assert "email_1" not in index_names
 
 
+async def test_down_drop_index_ops_auto_rollback_recreates_index(
+    runner: AsyncRunner,
+    migrations_dir: Path,
+    db: Database,
+) -> None:
+    # First migration creates the index
+    write_migration(
+        migrations_dir,
+        "001_create_idx.py",
+        "from mongrator import ops\ndef up(db):\n    return [ops.create_index('col', {'email': 1}, unique=True)]\n",
+    )
+    # Second migration drops the index with explicit keys for stateless revert
+    write_migration(
+        migrations_dir,
+        "002_drop_idx.py",
+        "from mongrator import ops\n"
+        "def up(db):\n"
+        "    return [ops.drop_index('col', 'email_1', keys=[('email', 1)], unique=True)]\n",
+    )
+    await runner.up()
+    # Index should be gone after both migrations applied
+    index_names = [idx["name"] for idx in db["col"].list_indexes()]  # type: ignore[index]
+    assert "email_1" not in index_names
+
+    # Roll back only the drop_index migration — index should be recreated
+    await runner.down(steps=1)
+    index_names = [idx["name"] for idx in db["col"].list_indexes()]  # type: ignore[index]
+    assert "email_1" in index_names
+    # Verify the recreated index preserved its unique option
+    index_info = db["col"].index_information()  # type: ignore[index]
+    assert index_info["email_1"]["unique"] is True
+
+
 async def test_down_no_down_method_raises(runner: AsyncRunner, migrations_dir: Path) -> None:
     write_migration(migrations_dir, "001_a.py", "def up(db): pass\n")
     await runner.up()

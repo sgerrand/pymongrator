@@ -22,12 +22,14 @@ def up(db):
 | Helper                                                         | Reversible | Description                          |
 |----------------------------------------------------------------|------------|--------------------------------------|
 | `ops.create_index(collection, keys, **kwargs)`                 | yes        | Create an index                      |
-| `ops.drop_index(collection, index_name)`                       | no         | Drop an index by name                |
+| `ops.drop_index(collection, index_name, keys=None, **kwargs)`  | keys[^1]   | Drop an index by name                |
 | `ops.rename_field(collection, old, new, filter=None)`          | yes        | Rename a field across documents      |
 | `ops.add_field(collection, field, default_value, filter=None)` | yes        | Add a field with a default value     |
 | `ops.drop_field(collection, field, filter=None)`               | no         | Remove a field from documents        |
 | `ops.create_collection(collection, **kwargs)`                  | yes        | Create a collection (reverts by drop)|
 | `ops.drop_collection(collection)`                              | no         | Drop a collection                    |
+
+[^1]: Only reversible when `keys` is provided (e.g. `ops.drop_index("col", "email_1", keys=[("email", 1)], unique=True)`). Without `keys`, `mongrator down` raises `NotImplementedError` — define a `down()` function instead.
 
 See the [ops API reference](api/ops.md) for full details.
 

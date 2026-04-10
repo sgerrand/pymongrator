@@ -92,18 +92,122 @@ def test_drop_index_description() -> None:
     assert "email_1" in op.description
 
 
-def test_drop_index_apply() -> None:
+def test_drop_index_apply_captures_spec() -> None:
     db = _db()
+    db["users"].index_information.return_value = {
+        "email_1": {"key": [("email", 1)], "unique": True, "v": 2},
+    }
     op = drop_index("users", "email_1")
     op.apply(db)
     db["users"].drop_index.assert_called_once_with("email_1")
 
 
-def test_drop_index_revert_raises() -> None:
+def test_drop_index_apply_missing_index() -> None:
+    db = _db()
+    db["users"].index_information.return_value = {}
+    op = drop_index("users", "email_1")
+    op.apply(db)
+    db["users"].drop_index.assert_called_once_with("email_1")
+
+
+def test_drop_index_revert_recreates_index() -> None:
+    db = _db()
+    db["users"].index_information.return_value = {
+        "email_1": {"key": [("email", 1)], "unique": True, "v": 2},
+    }
+    op = drop_index("users", "email_1")
+    op.apply(db)
+    db.reset_mock()
+    op.revert(db)
+    db["users"].create_index.assert_called_once_with([("email", 1)], unique=True, name="email_1")
+
+
+def test_drop_index_revert_raises_without_capture() -> None:
     db = _db()
     op = drop_index("users", "email_1")
     with pytest.raises(NotImplementedError):
         op.revert(db)
+
+
+def test_drop_index_double_apply_clears_stale_spec() -> None:
+    """A second apply() where the index is gone must not leave stale captured state."""
+    db = _db()
+    # First apply captures the spec
+    db["users"].index_information.return_value = {
+        "email_1": {"key": [("email", 1)], "unique": True, "v": 2},
+    }
+    op = drop_index("users", "email_1")
+    op.apply(db)
+    # Second apply — index no longer exists
+    db["users"].index_information.return_value = {}
+    op.apply(db)
+    # revert should fail because captured spec was cleared
+    with pytest.raises(NotImplementedError):
+        op.revert(db)
+
+
+def test_drop_index_stateless_revert_with_keys() -> None:
+    """When keys are supplied, revert recreates the index without needing apply()."""
+    db = _db()
+    op = drop_index("users", "email_1", keys=[("email", 1)], unique=True)
+    op.revert(db)
+    db["users"].create_index.assert_called_once_with([("email", 1)], name="email_1", unique=True)
+
+
+def test_drop_index_stateless_revert_name_in_kwargs_no_conflict() -> None:
+    """Passing name= in kwargs does not cause a duplicate keyword argument error."""
+    db = _db()
+    op = drop_index("users", "my_idx", keys=[("email", 1)], name="ignored", unique=True)
+    op.revert(db)
+    db["users"].create_index.assert_called_once_with(
+        [("email", 1)],
+        name="my_idx",
+        unique=True,
+    )
+
+
+def test_drop_index_stateless_revert_dict_keys() -> None:
+    """keys passed as a dict is normalized to list-of-tuples for create_index."""
+    db = _db()
+    op = drop_index("users", "email_1", keys={"email": 1}, unique=True)
+    op.revert(db)
+    db["users"].create_index.assert_called_once_with(
+        [("email", 1)],
+        name="email_1",
+        unique=True,
+    )
+
+
+def test_drop_index_stateless_revert_string_direction() -> None:
+    """Non-int direction values (e.g. 'text', '2dsphere') are accepted."""
+    db = _db()
+    op = drop_index("posts", "content_text", keys=[("content", "text")])
+    op.revert(db)
+    db["posts"].create_index.assert_called_once_with(
+        [("content", "text")],
+        name="content_text",
+    )
+
+
+def test_drop_index_stateless_apply_skips_capture() -> None:
+    """When keys are supplied, apply() drops the index without querying index_information."""
+    db = _db()
+    op = drop_index("users", "email_1", keys=[("email", 1)])
+    op.apply(db)
+    db["users"].drop_index.assert_called_once_with("email_1")
+    db["users"].index_information.assert_not_called()
+
+
+def test_drop_index_stateless_revert_without_apply() -> None:
+    """Simulates the runner's auto-rollback: fresh instance, no apply(), revert works."""
+    db = _db()
+    # First call — the "up" run
+    op1 = drop_index("users", "email_1", keys=[("email", 1)], unique=True)
+    op1.apply(db)
+    # Second call — runner calls up() again then reverts fresh instances
+    op2 = drop_index("users", "email_1", keys=[("email", 1)], unique=True)
+    op2.revert(db)
+    db["users"].create_index.assert_called_once_with([("email", 1)], name="email_1", unique=True)
 
 
 # ---------------------------------------------------------------------------
