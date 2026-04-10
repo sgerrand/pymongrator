@@ -97,9 +97,11 @@ def down(db):
 | Helper                                                         | Reversible | Description                      |
 |----------------------------------------------------------------|------------|----------------------------------|
 | `ops.create_index(collection, keys, **kwargs)`                 | yes        | Create an index                  |
-| `ops.drop_index(collection, index_name)`                       | no         | Drop an index by name            |
+| `ops.drop_index(collection, index_name, keys=None, **kwargs)`  | keys[^1]   | Drop an index by name            |
 | `ops.rename_field(collection, old, new, filter=None)`          | yes        | Rename a field across documents  |
 | `ops.add_field(collection, field, default_value, filter=None)` | yes        | Add a field with a default value |
+
+[^1]: Only reversible when `keys` is provided. See [writing migrations](docs/writing-migrations.md) for details.
 
 ## CLI reference
 
