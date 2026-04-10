@@ -16,6 +16,7 @@ Usage in a migration file::
         ]
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -39,7 +40,7 @@ class Operation:
 
 def create_index(
     collection: str,
-    keys: dict[str, int],
+    keys: dict[str, int | str],
     **kwargs: Any,
 ) -> Operation:
     """Create an index. Reverts by dropping the index."""
@@ -63,7 +64,7 @@ def create_index(
 def drop_index(
     collection: str,
     index_name: str,
-    keys: list[tuple[str, int]] | None = None,
+    keys: dict[str, int | str] | Sequence[tuple[str, int | str]] | None = None,
     **kwargs: Any,
 ) -> Operation:
     """Drop an index by name. Reverts by recreating the index.
@@ -74,16 +75,29 @@ def drop_index(
     rollback path where the runner calls ``up(db)`` a second time and then
     immediately calls ``revert()`` on fresh Operation instances.
 
+    *keys* accepts the same ``dict`` form used by ``create_index`` (e.g.
+    ``{"email": 1}``) or a ``list[tuple]`` matching pymongo's format (e.g.
+    ``[("email", 1)]``).  A dict is normalized to a list of tuples internally.
+
     If *keys* is omitted, apply() will attempt to capture the index spec at
     runtime; however this only works when revert() is called on the **same**
     Operation instance that ran apply().
     """
+    # Normalize dict keys to the list-of-tuples form pymongo expects.
+    _norm_keys: list[tuple[str, int | str]] | None
+    if isinstance(keys, dict):
+        _norm_keys = list(keys.items())
+    elif keys is not None:
+        _norm_keys = list(keys)
+    else:
+        _norm_keys = None
+
     _captured_spec: dict[str, Any] = {}
     # index_name is authoritative; drop any conflicting name from kwargs.
     kwargs.pop("name", None)
 
     def apply(db: Database) -> None:  # type: ignore[type-arg]
-        if keys is None:
+        if _norm_keys is None:
             _captured_spec.clear()
             indexes = db[collection].index_information()
             if index_name in indexes:
@@ -94,8 +108,8 @@ def drop_index(
         db[collection].drop_index(index_name)
 
     def revert(db: Database) -> None:  # type: ignore[type-arg]
-        if keys is not None:
-            db[collection].create_index(keys, name=index_name, **kwargs)
+        if _norm_keys is not None:
+            db[collection].create_index(_norm_keys, name=index_name, **kwargs)
         elif _captured_spec:
             _captured_spec["opts"]["name"] = index_name
             db[collection].create_index(_captured_spec["key"], **_captured_spec["opts"])

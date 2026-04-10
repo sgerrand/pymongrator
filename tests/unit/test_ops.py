@@ -166,6 +166,29 @@ def test_drop_index_stateless_revert_name_in_kwargs_no_conflict() -> None:
     )
 
 
+def test_drop_index_stateless_revert_dict_keys() -> None:
+    """keys passed as a dict is normalized to list-of-tuples for create_index."""
+    db = _db()
+    op = drop_index("users", "email_1", keys={"email": 1}, unique=True)
+    op.revert(db)
+    db["users"].create_index.assert_called_once_with(
+        [("email", 1)],
+        name="email_1",
+        unique=True,
+    )
+
+
+def test_drop_index_stateless_revert_string_direction() -> None:
+    """Non-int direction values (e.g. 'text', '2dsphere') are accepted."""
+    db = _db()
+    op = drop_index("posts", "content_text", keys=[("content", "text")])
+    op.revert(db)
+    db["posts"].create_index.assert_called_once_with(
+        [("content", "text")],
+        name="content_text",
+    )
+
+
 def test_drop_index_stateless_apply_skips_capture() -> None:
     """When keys are supplied, apply() drops the index without querying index_information."""
     db = _db()
