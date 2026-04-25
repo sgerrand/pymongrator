@@ -40,15 +40,6 @@ class AsyncMigrationRunner(Protocol):
     async def validate(self) -> list[ChecksumMismatchError]: ...
 
 
-def _resolve_rollback(migration: MigrationFile) -> None:
-    """Raise NoDownMethodError if the migration cannot be rolled back."""
-    if migration.has_down():
-        return
-    # Check if up() returns a list of Operations with revert support
-    # (We cannot call up() here; this is checked at rollback time instead.)
-    raise NoDownMethodError(migration.id)
-
-
 def _run_up_migration(migration: MigrationFile, db: Any) -> None:
     """Execute the up() callable, calling Operation.apply() for each op if needed."""
     up_fn = migration.up
