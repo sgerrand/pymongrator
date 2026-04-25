@@ -6,6 +6,7 @@ AsyncRunner wraps a pymongo AsyncMongoClient.
 Both share the same non-IO logic via loader and planner.
 """
 
+import sys
 import time
 from typing import Any, Protocol, cast, runtime_checkable
 
@@ -58,7 +59,14 @@ def _run_up_migration(migration: MigrationFile, db: Any) -> None:
     if isinstance(result, list) and all(isinstance(op, Operation) for op in result):
         # ops-based migration: up() returns ops, runner applies them.
         # Raw pymongo migrations return None.
-        for op in cast(list[Operation], result):
+        ops = cast(list[Operation], result)
+        for op in ops:
+            if not op.is_reversible:
+                print(
+                    f"warning: operation {op.description} is not reversible; "
+                    "auto-rollback will fail. Supply keys= or define a down() function.",
+                    file=sys.stderr,
+                )
             op.apply(db)  # type: ignore[arg-type]
 
 

@@ -30,6 +30,18 @@ class Operation:
     description: str
     _apply: Any = field(repr=False)
     _revert: Any = field(repr=False)
+    _is_reversible: bool = field(default=True, repr=False)
+
+    @property
+    def is_reversible(self) -> bool:
+        """Whether ``revert()`` is expected to succeed.
+
+        Returns ``False`` for operations that will raise ``NotImplementedError``
+        on revert (e.g. ``drop_index`` without ``keys``, ``drop_field``,
+        ``drop_collection``).  Callers can inspect this at plan/load time to
+        warn about migrations that are not safely rollback-able.
+        """
+        return self._is_reversible
 
     def apply(self, db: Database) -> None:  # type: ignore[type-arg]
         self._apply(db)
@@ -121,6 +133,7 @@ def drop_index(
         description=f"drop_index({collection!r}, {index_name!r})",
         _apply=apply,
         _revert=revert,
+        _is_reversible=_norm_keys is not None,
     )
 
 
@@ -199,6 +212,7 @@ def drop_field(
         description=f"drop_field({collection!r}, {field_name!r})",
         _apply=apply,
         _revert=revert,
+        _is_reversible=False,
     )
 
 
@@ -237,4 +251,5 @@ def drop_collection(collection: str) -> Operation:
         description=f"drop_collection({collection!r})",
         _apply=apply,
         _revert=revert,
+        _is_reversible=False,
     )
