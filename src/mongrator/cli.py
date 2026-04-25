@@ -120,7 +120,7 @@ def _load_config(args: argparse.Namespace) -> MigratorConfig:
     config_path = Path(args.config)
     if config_path.exists():
         return MigratorConfig.from_toml(config_path)
-    return MigratorConfig.from_env()
+    return MigratorConfig.from_env(dotenv_path=Path(".env"))
 
 
 # ---------------------------------------------------------------------------

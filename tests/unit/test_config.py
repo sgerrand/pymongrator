@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from mongrator.config import _DEFAULT_COLLECTION, _DEFAULT_MIGRATIONS_DIR, MigratorConfig
+from mongrator.config import _DEFAULT_COLLECTION, _DEFAULT_MIGRATIONS_DIR, MigratorConfig, _load_dotenv
 from mongrator.exceptions import ConfigurationError
 
 # ---------------------------------------------------------------------------
@@ -124,6 +124,124 @@ def test_from_env_missing_db(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("MONGRATOR_DB", raising=False)
     with pytest.raises(ConfigurationError, match="MONGRATOR_DB"):
         MigratorConfig.from_env()
+
+
+# ---------------------------------------------------------------------------
+# Immutability
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# _load_dotenv
+# ---------------------------------------------------------------------------
+
+
+def test_load_dotenv_basic(tmp_path: Path) -> None:
+    dotenv = tmp_path / ".env"
+    dotenv.write_text("FOO=bar\nBAZ=qux\n")
+    result = _load_dotenv(dotenv)
+    assert result == {"FOO": "bar", "BAZ": "qux"}
+
+
+def test_load_dotenv_comments_and_blank_lines(tmp_path: Path) -> None:
+    dotenv = tmp_path / ".env"
+    dotenv.write_text("# a comment\n\nKEY=value\n\n# another comment\n")
+    result = _load_dotenv(dotenv)
+    assert result == {"KEY": "value"}
+
+
+def test_load_dotenv_double_quoted(tmp_path: Path) -> None:
+    dotenv = tmp_path / ".env"
+    dotenv.write_text('KEY="hello world"\n')
+    result = _load_dotenv(dotenv)
+    assert result == {"KEY": "hello world"}
+
+
+def test_load_dotenv_single_quoted(tmp_path: Path) -> None:
+    dotenv = tmp_path / ".env"
+    dotenv.write_text("KEY='hello world'\n")
+    result = _load_dotenv(dotenv)
+    assert result == {"KEY": "hello world"}
+
+
+def test_load_dotenv_value_with_equals(tmp_path: Path) -> None:
+    dotenv = tmp_path / ".env"
+    dotenv.write_text("URI=mongodb://host:27017/?authSource=admin\n")
+    result = _load_dotenv(dotenv)
+    assert result == {"URI": "mongodb://host:27017/?authSource=admin"}
+
+
+def test_load_dotenv_empty_value(tmp_path: Path) -> None:
+    dotenv = tmp_path / ".env"
+    dotenv.write_text("KEY=\n")
+    result = _load_dotenv(dotenv)
+    assert result == {"KEY": ""}
+
+
+def test_load_dotenv_missing_file(tmp_path: Path) -> None:
+    result = _load_dotenv(tmp_path / "nonexistent")
+    assert result == {}
+
+
+def test_load_dotenv_strips_whitespace(tmp_path: Path) -> None:
+    dotenv = tmp_path / ".env"
+    dotenv.write_text("  KEY  =  value  \n")
+    result = _load_dotenv(dotenv)
+    assert result == {"KEY": "value"}
+
+
+def test_load_dotenv_no_equals_line_skipped(tmp_path: Path) -> None:
+    dotenv = tmp_path / ".env"
+    dotenv.write_text("no-equals-here\nKEY=val\n")
+    result = _load_dotenv(dotenv)
+    assert result == {"KEY": "val"}
+
+
+# ---------------------------------------------------------------------------
+# from_env with dotenv_path
+# ---------------------------------------------------------------------------
+
+
+def test_from_env_dotenv_fallback(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("MONGRATOR_URI", raising=False)
+    monkeypatch.delenv("MONGRATOR_DB", raising=False)
+    monkeypatch.delenv("MONGRATOR_MIGRATIONS_DIR", raising=False)
+    monkeypatch.delenv("MONGRATOR_COLLECTION", raising=False)
+    dotenv = tmp_path / ".env"
+    dotenv.write_text('MONGRATOR_URI="mongodb://localhost:27017"\nMONGRATOR_DB=testdb\n')
+    config = MigratorConfig.from_env(dotenv_path=dotenv)
+    assert config.uri == "mongodb://localhost:27017"
+    assert config.database == "testdb"
+
+
+def test_from_env_environ_overrides_dotenv(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MONGRATOR_URI", "mongodb://env-host:27017")
+    monkeypatch.setenv("MONGRATOR_DB", "envdb")
+    dotenv = tmp_path / ".env"
+    dotenv.write_text("MONGRATOR_URI=mongodb://dotenv-host:27017\nMONGRATOR_DB=dotenvdb\n")
+    config = MigratorConfig.from_env(dotenv_path=dotenv)
+    assert config.uri == "mongodb://env-host:27017"
+    assert config.database == "envdb"
+
+
+def test_from_env_dotenv_missing_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("MONGRATOR_URI", "mongodb://localhost:27017")
+    monkeypatch.setenv("MONGRATOR_DB", "testdb")
+    config = MigratorConfig.from_env(dotenv_path=tmp_path / "nonexistent")
+    assert config.uri == "mongodb://localhost:27017"
+
+
+def test_from_env_dotenv_partial_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MONGRATOR_URI", "mongodb://env-host:27017")
+    monkeypatch.delenv("MONGRATOR_DB", raising=False)
+    monkeypatch.delenv("MONGRATOR_MIGRATIONS_DIR", raising=False)
+    monkeypatch.delenv("MONGRATOR_COLLECTION", raising=False)
+    dotenv = tmp_path / ".env"
+    dotenv.write_text("MONGRATOR_DB=dotenvdb\nMONGRATOR_COLLECTION=custom_col\n")
+    config = MigratorConfig.from_env(dotenv_path=dotenv)
+    assert config.uri == "mongodb://env-host:27017"
+    assert config.database == "dotenvdb"
+    assert config.collection == "custom_col"
 
 
 # ---------------------------------------------------------------------------
