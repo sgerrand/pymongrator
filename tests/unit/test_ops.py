@@ -41,6 +41,53 @@ def test_operation_revert_delegates() -> None:
     assert called_with == [sentinel]
 
 
+def test_operation_is_reversible_default() -> None:
+    op = Operation("desc", _apply=lambda db: None, _revert=lambda db: None)
+    assert op.is_reversible is True
+
+
+def test_operation_is_reversible_false() -> None:
+    op = Operation("desc", _apply=lambda db: None, _revert=lambda db: None, _is_reversible=False)
+    assert op.is_reversible is False
+
+
+# ---------------------------------------------------------------------------
+# is_reversible per helper
+# ---------------------------------------------------------------------------
+
+
+def test_create_index_is_reversible() -> None:
+    assert create_index("users", {"email": 1}).is_reversible is True
+
+
+def test_drop_index_with_keys_is_reversible() -> None:
+    assert drop_index("users", "email_1", keys=[("email", 1)]).is_reversible is True
+
+
+def test_drop_index_without_keys_is_not_reversible() -> None:
+    assert drop_index("users", "email_1").is_reversible is False
+
+
+def test_rename_field_is_reversible() -> None:
+    assert rename_field("users", "name", "full_name").is_reversible is True
+
+
+def test_add_field_is_reversible() -> None:
+    assert add_field("users", "verified", False).is_reversible is True
+
+
+def test_drop_field_is_not_reversible() -> None:
+    assert drop_field("users", "legacy_flag").is_reversible is False
+
+
+def test_create_collection_is_reversible() -> None:
+    assert create_collection("audit_log").is_reversible is True
+
+
+def test_drop_collection_is_not_reversible() -> None:
+    assert drop_collection("old_logs").is_reversible is False
+
+
 # ---------------------------------------------------------------------------
 # create_index
 # ---------------------------------------------------------------------------
