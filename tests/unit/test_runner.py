@@ -470,7 +470,7 @@ def test_sync_down_acquires_and_releases_lock(tmp_path: Path) -> None:
 
 def test_sync_up_propagates_lock_error(tmp_path: Path) -> None:
     runner, db, store = _sync_runner(tmp_path)
-    runner._lock.__enter__.side_effect = MigrationLockError()  # ty: ignore[invalid-assignment]
+    runner._lock.__enter__.side_effect = MigrationLockError()  # ty: ignore[unresolved-attribute]
 
     with pytest.raises(MigrationLockError):
         runner.up()
@@ -480,7 +480,7 @@ def test_sync_up_propagates_lock_error(tmp_path: Path) -> None:
 
 def test_sync_down_propagates_lock_error(tmp_path: Path) -> None:
     runner, db, store = _sync_runner(tmp_path)
-    runner._lock.__enter__.side_effect = MigrationLockError()  # ty: ignore[invalid-assignment]
+    runner._lock.__enter__.side_effect = MigrationLockError()  # ty: ignore[unresolved-attribute]
 
     with pytest.raises(MigrationLockError):
         runner.down()
@@ -520,7 +520,7 @@ async def test_async_down_acquires_and_releases_lock(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_async_up_propagates_lock_error(tmp_path: Path) -> None:
     runner, db, store = _async_runner(tmp_path)
-    runner._lock.__aenter__.side_effect = MigrationLockError()  # ty: ignore[invalid-assignment]
+    runner._lock.__aenter__.side_effect = MigrationLockError()  # ty: ignore[unresolved-attribute]
 
     with pytest.raises(MigrationLockError):
         await runner.up()
@@ -531,7 +531,7 @@ async def test_async_up_propagates_lock_error(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_async_down_propagates_lock_error(tmp_path: Path) -> None:
     runner, db, store = _async_runner(tmp_path)
-    runner._lock.__aenter__.side_effect = MigrationLockError()  # ty: ignore[invalid-assignment]
+    runner._lock.__aenter__.side_effect = MigrationLockError()  # ty: ignore[unresolved-attribute]
 
     with pytest.raises(MigrationLockError):
         await runner.down()
