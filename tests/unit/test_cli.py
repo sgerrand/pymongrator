@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from mongrator.cli import (
+    EXIT_NOTHING_TO_DO,
     _build_parser,
     _cmd_create,
     _cmd_down,
@@ -314,7 +315,7 @@ def test_cmd_up_nothing_to_apply(capsys: pytest.CaptureFixture[str]) -> None:
     ):
         ns = parse("up")
         rc = _cmd_up(ns)
-    assert rc == 0
+    assert rc == EXIT_NOTHING_TO_DO
     assert "Nothing to apply" in capsys.readouterr().out
 
 
@@ -349,7 +350,7 @@ def test_cmd_down_nothing_to_rollback(capsys: pytest.CaptureFixture[str]) -> Non
     ):
         ns = parse("down")
         rc = _cmd_down(ns)
-    assert rc == 0
+    assert rc == EXIT_NOTHING_TO_DO
     assert "Nothing to roll back" in capsys.readouterr().out
 
 
