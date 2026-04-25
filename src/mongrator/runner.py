@@ -135,7 +135,11 @@ class SyncRunner:
             return rolled_back
 
     def status(self) -> list[MigrationStatus]:
-        """Return the status of every known migration, including orphans."""
+        """Return the status of every known migration, including orphans.
+
+        This is a read-only operation and intentionally does not acquire the
+        advisory lock so it can run safely while migrations are in progress.
+        """
         files = loader.load(self._config)
         applied = self._store.get_applied()
         file_ids = {f.id for f in files}
@@ -169,7 +173,11 @@ class SyncRunner:
         return statuses
 
     def validate(self) -> list[ChecksumMismatchError]:
-        """Check that applied migration files match their recorded checksums."""
+        """Check that applied migration files match their recorded checksums.
+
+        This is a read-only operation and intentionally does not acquire the
+        advisory lock so it can run safely while migrations are in progress.
+        """
         files = loader.load(self._config)
         applied = self._store.get_applied()
         errors: list[ChecksumMismatchError] = []
@@ -250,7 +258,11 @@ class AsyncRunner:
             return rolled_back
 
     async def status(self) -> list[MigrationStatus]:
-        """Return the status of every known migration, including orphans."""
+        """Return the status of every known migration, including orphans.
+
+        This is a read-only operation and intentionally does not acquire the
+        advisory lock so it can run safely while migrations are in progress.
+        """
         files = loader.load(self._config)
         applied = await self._store.get_applied()
         file_ids = {f.id for f in files}
@@ -284,7 +296,11 @@ class AsyncRunner:
         return statuses
 
     async def validate(self) -> list[ChecksumMismatchError]:
-        """Check that applied migration files match their recorded checksums."""
+        """Check that applied migration files match their recorded checksums.
+
+        This is a read-only operation and intentionally does not acquire the
+        advisory lock so it can run safely while migrations are in progress.
+        """
         files = loader.load(self._config)
         applied = await self._store.get_applied()
         errors: list[ChecksumMismatchError] = []
