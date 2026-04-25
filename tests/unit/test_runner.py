@@ -313,6 +313,35 @@ def test_sync_status_checksum_mismatch(tmp_path: Path) -> None:
     assert not statuses[0].checksum_ok
 
 
+def test_sync_status_detects_orphaned(tmp_path: Path) -> None:
+    runner, db, store = _sync_runner(tmp_path)
+    migrations = [_migration("001_a")]
+    store.get_applied.return_value = {"001_a", "002_deleted"}
+    store.get_record.side_effect = lambda mid: make_record(mid, "abc", "up", 5)
+
+    with patch("mongrator.runner.loader.load", return_value=migrations):
+        statuses = runner.status()
+
+    assert len(statuses) == 2
+    orphaned = [s for s in statuses if s.orphaned]
+    assert len(orphaned) == 1
+    assert orphaned[0].id == "002_deleted"
+    assert orphaned[0].applied is True
+
+
+def test_sync_status_no_orphans_when_all_files_present(tmp_path: Path) -> None:
+    runner, db, store = _sync_runner(tmp_path)
+    migrations = [_migration("001_a"), _migration("002_b")]
+    store.get_applied.return_value = {"001_a"}
+    store.get_record.side_effect = lambda mid: make_record(mid, "abc", "up", 5) if mid == "001_a" else None
+
+    with patch("mongrator.runner.loader.load", return_value=migrations):
+        statuses = runner.status()
+
+    assert len(statuses) == 2
+    assert all(not s.orphaned for s in statuses)
+
+
 # ---------------------------------------------------------------------------
 # SyncRunner.validate
 # ---------------------------------------------------------------------------
@@ -405,6 +434,23 @@ async def test_async_down_drop_index_ops_auto_rollback(tmp_path: Path) -> None:
         name="email_1",
         unique=True,
     )
+
+
+@pytest.mark.asyncio
+async def test_async_status_detects_orphaned(tmp_path: Path) -> None:
+    runner, db, store = _async_runner(tmp_path)
+    migrations = [_migration("001_a")]
+    store.get_applied.return_value = {"001_a", "002_deleted"}
+    store.get_record.side_effect = lambda mid: make_record(mid, "abc", "up", 5)
+
+    with patch("mongrator.runner.loader.load", return_value=migrations):
+        statuses = await runner.status()
+
+    assert len(statuses) == 2
+    orphaned = [s for s in statuses if s.orphaned]
+    assert len(orphaned) == 1
+    assert orphaned[0].id == "002_deleted"
+    assert orphaned[0].applied is True
 
 
 @pytest.mark.asyncio

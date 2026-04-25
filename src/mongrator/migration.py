@@ -55,3 +55,4 @@ class MigrationStatus:
     applied: bool
     applied_at: datetime | None = None
     checksum_ok: bool = True
+    orphaned: bool = False
