@@ -284,6 +284,26 @@ def test_cmd_status_shows_applied_and_pending(capsys: pytest.CaptureFixture[str]
     assert "pending" in out
 
 
+def test_cmd_status_shows_orphaned(capsys: pytest.CaptureFixture[str]) -> None:
+    statuses = [
+        MigrationStatus(id="001_a", applied=True, applied_at=datetime(2025, 1, 1, tzinfo=UTC)),
+        MigrationStatus(id="002_deleted", applied=True, applied_at=datetime(2025, 1, 2, tzinfo=UTC), orphaned=True),
+    ]
+    mock_runner = MagicMock()
+    mock_runner.status.return_value = statuses
+    with (
+        patch("mongrator.cli._load_config"),
+        patch("pymongo.MongoClient", return_value=MagicMock()),
+        patch("mongrator.runner.SyncRunner", return_value=mock_runner),
+    ):
+        ns = parse("status")
+        rc = _cmd_status(ns)
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "ORPHANED" in out
+    assert "002_deleted" in out
+
+
 # ---------------------------------------------------------------------------
 # _cmd_up
 # ---------------------------------------------------------------------------

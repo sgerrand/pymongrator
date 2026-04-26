@@ -175,9 +175,14 @@ def _cmd_status(args: argparse.Namespace) -> int:
     print(f"{'Migration':<{col_width}} {'Status':<10} {'Applied At'}")
     print("-" * (col_width + 30))
     for s in statuses:
-        state = "applied" if s.applied else "pending"
-        if s.applied and not s.checksum_ok:
+        if s.orphaned:
+            state = "ORPHANED"
+        elif s.applied and not s.checksum_ok:
             state = "MODIFIED"
+        elif s.applied:
+            state = "applied"
+        else:
+            state = "pending"
         applied_at = s.applied_at.isoformat() if s.applied_at else "-"
         print(f"{s.id:<{col_width}} {state:<10} {applied_at}")
     return 0

@@ -135,19 +135,35 @@ class SyncRunner:
             return rolled_back
 
     def status(self) -> list[MigrationStatus]:
-        """Return the status of every known migration."""
+        """Return the status of every known migration, including orphans."""
         files = loader.load(self._config)
         applied = self._store.get_applied()
+        file_ids = {f.id for f in files}
         statuses: list[MigrationStatus] = []
         for f in files:
-            record = self._store.get_record(f.id)
-            checksum_ok = record is None or record["checksum"] == f.checksum
+            if f.id in applied:
+                record = self._store.get_record(f.id)
+                checksum_ok = record is None or record["checksum"] == f.checksum
+                applied_at = record["applied_at"] if record else None
+            else:
+                checksum_ok = True
+                applied_at = None
             statuses.append(
                 MigrationStatus(
                     id=f.id,
                     applied=f.id in applied,
-                    applied_at=record["applied_at"] if record else None,
+                    applied_at=applied_at,
                     checksum_ok=checksum_ok,
+                )
+            )
+        for orphan_id in sorted(applied - file_ids):
+            record = self._store.get_record(orphan_id)
+            statuses.append(
+                MigrationStatus(
+                    id=orphan_id,
+                    applied=True,
+                    applied_at=record["applied_at"] if record else None,
+                    orphaned=True,
                 )
             )
         return statuses
@@ -234,19 +250,35 @@ class AsyncRunner:
             return rolled_back
 
     async def status(self) -> list[MigrationStatus]:
-        """Return the status of every known migration."""
+        """Return the status of every known migration, including orphans."""
         files = loader.load(self._config)
         applied = await self._store.get_applied()
+        file_ids = {f.id for f in files}
         statuses: list[MigrationStatus] = []
         for f in files:
-            record = await self._store.get_record(f.id)
-            checksum_ok = record is None or record["checksum"] == f.checksum
+            if f.id in applied:
+                record = await self._store.get_record(f.id)
+                checksum_ok = record is None or record["checksum"] == f.checksum
+                applied_at = record["applied_at"] if record else None
+            else:
+                checksum_ok = True
+                applied_at = None
             statuses.append(
                 MigrationStatus(
                     id=f.id,
                     applied=f.id in applied,
-                    applied_at=record["applied_at"] if record else None,
+                    applied_at=applied_at,
                     checksum_ok=checksum_ok,
+                )
+            )
+        for orphan_id in sorted(applied - file_ids):
+            record = await self._store.get_record(orphan_id)
+            statuses.append(
+                MigrationStatus(
+                    id=orphan_id,
+                    applied=True,
+                    applied_at=record["applied_at"] if record else None,
+                    orphaned=True,
                 )
             )
         return statuses
