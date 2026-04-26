@@ -56,8 +56,7 @@ def _run_up_migration(migration: MigrationFile, db: Any) -> None:
                 if not op.is_reversible:
                     print(
                         f"warning: operation {op.description} is not auto-reversible; "
-                        "rollback will fail without a down() function. "
-                        "Supply keys= to the operation or define a down() function.",
+                        "rollback will fail without a down() function.",
                         file=sys.stderr,
                     )
         for op in ops:
