@@ -12,6 +12,7 @@ from mongrator.exceptions import (
     MigrationNotFoundError,
     MigratorError,
     NoDownMethodError,
+    TransactionNotSupportedError,
 )
 
 
@@ -25,6 +26,7 @@ def test_all_errors_are_migrator_errors() -> None:
         NoDownMethodError,
         MigrationNotFoundError,
         MigrationLockError,
+        TransactionNotSupportedError,
     ):
         assert issubclass(cls, MigratorError)
 
@@ -76,6 +78,14 @@ def test_migration_lock_error() -> None:
     err = MigrationLockError()
     assert "lock" in str(err).lower()
     assert isinstance(err, MigratorError)
+
+
+def test_transaction_not_supported_error() -> None:
+    err = TransactionNotSupportedError()
+    assert isinstance(err, MigratorError)
+    msg = str(err).lower()
+    assert "replica set" in msg
+    assert "sharded" in msg
 
 
 def test_errors_are_catchable_as_base() -> None:

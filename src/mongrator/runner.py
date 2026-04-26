@@ -15,7 +15,7 @@ from pymongo import AsyncMongoClient, MongoClient
 
 from . import loader, planner
 from .config import MigratorConfig
-from .exceptions import ChecksumMismatchError, NoDownMethodError
+from .exceptions import ChecksumMismatchError, NoDownMethodError, TransactionNotSupportedError
 from .migration import MigrationFile, MigrationId, MigrationStatus
 from .ops import Operation
 from .planner import MigrationPlan
@@ -26,8 +26,8 @@ from .state import AsyncMigrationLock, AsyncMongoStateStore, SyncMigrationLock, 
 class MigrationRunner(Protocol):
     def plan_up(self, target: MigrationId | None = None) -> MigrationPlan: ...
     def plan_down(self, steps: int = 1) -> MigrationPlan: ...
-    def up(self, target: MigrationId | None = None) -> list[MigrationId]: ...
-    def down(self, steps: int = 1) -> list[MigrationId]: ...
+    def up(self, target: MigrationId | None = None, *, transactional: bool = False) -> list[MigrationId]: ...
+    def down(self, steps: int = 1, *, transactional: bool = False) -> list[MigrationId]: ...
     def status(self) -> list[MigrationStatus]: ...
     def validate(self) -> list[ChecksumMismatchError]: ...
 
@@ -36,8 +36,8 @@ class MigrationRunner(Protocol):
 class AsyncMigrationRunner(Protocol):
     async def plan_up(self, target: MigrationId | None = None) -> MigrationPlan: ...
     async def plan_down(self, steps: int = 1) -> MigrationPlan: ...
-    async def up(self, target: MigrationId | None = None) -> list[MigrationId]: ...
-    async def down(self, steps: int = 1) -> list[MigrationId]: ...
+    async def up(self, target: MigrationId | None = None, *, transactional: bool = False) -> list[MigrationId]: ...
+    async def down(self, steps: int = 1, *, transactional: bool = False) -> list[MigrationId]: ...
     async def status(self) -> list[MigrationStatus]: ...
     async def validate(self) -> list[ChecksumMismatchError]: ...
 
@@ -133,10 +133,79 @@ async def _async_run_down_migration(migration: MigrationFile, async_db: Any, syn
     raise NoDownMethodError(migration.id)
 
 
+class _SessionBoundCollection:
+    """Wraps a pymongo Collection, injecting ``session=`` into every call."""
+
+    def __init__(self, collection: Any, session: Any) -> None:
+        self._collection = collection
+        self._session = session
+
+    def __getitem__(self, name: str) -> "_SessionBoundCollection":
+        return _SessionBoundCollection(self._collection[name], self._session)
+
+    def __getattr__(self, name: str) -> Any:
+        attr = getattr(self._collection, name)
+        if callable(attr):
+            session = self._session
+
+            def _bound(*args: Any, **kwargs: Any) -> Any:
+                kwargs.setdefault("session", session)
+                return attr(*args, **kwargs)
+
+            return _bound
+        return attr
+
+
+class _SessionBoundDatabase:
+    """Wraps a pymongo Database, injecting ``session=`` into every collection/db call.
+
+    Passed to migration functions and ops helpers when running under a
+    transaction so that every pymongo operation is part of the session.
+    """
+
+    def __init__(self, db: Any, session: Any) -> None:
+        self._db = db
+        self._session = session
+
+    def __getitem__(self, name: str) -> _SessionBoundCollection:
+        return _SessionBoundCollection(self._db[name], self._session)
+
+    def __getattr__(self, name: str) -> Any:
+        attr = getattr(self._db, name)
+        # Collection accessed via attribute (e.g. db.users)
+        if hasattr(attr, "insert_one"):
+            return _SessionBoundCollection(attr, self._session)
+        if callable(attr):
+            session = self._session
+
+            def _bound(*args: Any, **kwargs: Any) -> Any:
+                kwargs.setdefault("session", session)
+                return attr(*args, **kwargs)
+
+            return _bound
+        return attr
+
+
+def _check_transaction_support(client: Any) -> None:
+    """Verify the server supports transactions (replica set or sharded cluster).
+
+    Issues a ``hello`` command to inspect the topology. Connection and
+    authentication errors propagate as-is. Only raises
+    TransactionNotSupportedError when the server is confirmed to be a
+    standalone (neither a replica set member nor a mongos router).
+    """
+    result = client.admin.command("hello")
+    is_replica_set = bool(result.get("setName"))
+    is_sharded = result.get("msg") == "isdbgrid"
+    if not (is_replica_set or is_sharded):
+        raise TransactionNotSupportedError
+
+
 class SyncRunner:
     """Synchronous migration runner backed by pymongo."""
 
     def __init__(self, client: "MongoClient", config: MigratorConfig) -> None:  # type: ignore[type-arg]
+        self._client = client
         self._db = client[config.database]
         self._store = SyncStateStore(self._db[config.collection])
         self._lock = SyncMigrationLock(self._db[config.collection])
@@ -154,8 +223,17 @@ class SyncRunner:
         applied = self._store.get_applied()
         return planner.plan_down(files, applied, steps)
 
-    def up(self, target: MigrationId | None = None) -> list[MigrationId]:
-        """Apply pending migrations, optionally up to `target`."""
+    def up(self, target: MigrationId | None = None, *, transactional: bool = False) -> list[MigrationId]:
+        """Apply pending migrations, optionally up to `target`.
+
+        Args:
+            target: Stop after applying this migration ID.
+            transactional: When True, wrap each migration in a MongoDB
+                transaction. Requires a replica set; raises
+                ``TransactionNotSupportedError`` otherwise.
+        """
+        if transactional:
+            _check_transaction_support(self._client)
         with self._lock:
             files = loader.load(self._config)
             applied = self._store.get_applied()
@@ -163,14 +241,28 @@ class SyncRunner:
             applied_ids: list[MigrationId] = []
             for migration in plan.to_apply:
                 start = time.monotonic()
-                _run_up_migration(migration, self._db)
+                if transactional:
+                    with self._client.start_session() as session:
+                        with session.start_transaction():
+                            _run_up_migration(migration, _SessionBoundDatabase(self._db, session))
+                else:
+                    _run_up_migration(migration, self._db)
                 duration_ms = int((time.monotonic() - start) * 1000)
                 self._store.record_applied(make_record(migration.id, migration.checksum, "up", duration_ms))
                 applied_ids.append(migration.id)
             return applied_ids
 
-    def down(self, steps: int = 1) -> list[MigrationId]:
-        """Roll back the most recently applied migrations."""
+    def down(self, steps: int = 1, *, transactional: bool = False) -> list[MigrationId]:
+        """Roll back the most recently applied migrations.
+
+        Args:
+            steps: Number of migrations to roll back.
+            transactional: When True, wrap each migration in a MongoDB
+                transaction. Requires a replica set; raises
+                ``TransactionNotSupportedError`` otherwise.
+        """
+        if transactional:
+            _check_transaction_support(self._client)
         with self._lock:
             files = loader.load(self._config)
             applied = self._store.get_applied()
@@ -178,7 +270,12 @@ class SyncRunner:
             rolled_back: list[MigrationId] = []
             for migration in plan.to_apply:
                 start = time.monotonic()
-                _run_down_migration(migration, self._db)
+                if transactional:
+                    with self._client.start_session() as session:
+                        with session.start_transaction():
+                            _run_down_migration(migration, _SessionBoundDatabase(self._db, session))
+                else:
+                    _run_down_migration(migration, self._db)
                 duration_ms = int((time.monotonic() - start) * 1000)
                 self._store.record_applied(make_record(migration.id, migration.checksum, "down", duration_ms))
                 rolled_back.append(migration.id)
@@ -287,12 +384,20 @@ class AsyncRunner:
         applied = await self._store.get_applied()
         return planner.plan_down(files, applied, steps)
 
-    async def up(self, target: MigrationId | None = None) -> list[MigrationId]:
+    async def up(self, target: MigrationId | None = None, *, transactional: bool = False) -> list[MigrationId]:
         """Apply pending migrations, optionally up to `target`.
 
         Coroutine migration functions receive the async database and are awaited;
         sync functions and ops-based migrations use the sync database.
+
+        Args:
+            target: Stop after applying this migration ID.
+            transactional: When True, wrap each migration in a MongoDB
+                transaction. Requires a replica set; raises
+                ``TransactionNotSupportedError`` otherwise.
         """
+        if transactional:
+            _check_transaction_support(self._sync_client)
         async with self._lock:
             files = loader.load(self._config)
             applied = await self._store.get_applied()
@@ -300,18 +405,33 @@ class AsyncRunner:
             applied_ids: list[MigrationId] = []
             for migration in plan.to_apply:
                 start = time.monotonic()
-                await _async_run_up_migration(migration, self._async_db, self._db)
+                if transactional:
+                    with self._sync_client.start_session() as session:
+                        with session.start_transaction():
+                            await _async_run_up_migration(
+                                migration, self._async_db, _SessionBoundDatabase(self._db, session)
+                            )
+                else:
+                    await _async_run_up_migration(migration, self._async_db, self._db)
                 duration_ms = int((time.monotonic() - start) * 1000)
                 await self._store.record_applied(make_record(migration.id, migration.checksum, "up", duration_ms))
                 applied_ids.append(migration.id)
             return applied_ids
 
-    async def down(self, steps: int = 1) -> list[MigrationId]:
+    async def down(self, steps: int = 1, *, transactional: bool = False) -> list[MigrationId]:
         """Roll back the most recently applied migrations.
 
         Coroutine migration functions receive the async database and are awaited;
         sync functions and ops-based migrations use the sync database.
+
+        Args:
+            steps: Number of migrations to roll back.
+            transactional: When True, wrap each migration in a MongoDB
+                transaction. Requires a replica set; raises
+                ``TransactionNotSupportedError`` otherwise.
         """
+        if transactional:
+            _check_transaction_support(self._sync_client)
         async with self._lock:
             files = loader.load(self._config)
             applied = await self._store.get_applied()
@@ -319,7 +439,14 @@ class AsyncRunner:
             rolled_back: list[MigrationId] = []
             for migration in plan.to_apply:
                 start = time.monotonic()
-                await _async_run_down_migration(migration, self._async_db, self._db)
+                if transactional:
+                    with self._sync_client.start_session() as session:
+                        with session.start_transaction():
+                            await _async_run_down_migration(
+                                migration, self._async_db, _SessionBoundDatabase(self._db, session)
+                            )
+                else:
+                    await _async_run_down_migration(migration, self._async_db, self._db)
                 duration_ms = int((time.monotonic() - start) * 1000)
                 await self._store.record_applied(make_record(migration.id, migration.checksum, "down", duration_ms))
                 rolled_back.append(migration.id)

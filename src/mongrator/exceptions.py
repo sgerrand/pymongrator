@@ -84,3 +84,18 @@ class MigrationLockError(MigratorError):
             "Another migration may be in progress. "
             "If this is stale, the lock will expire automatically."
         )
+
+
+class TransactionNotSupportedError(MigratorError):
+    """The MongoDB server does not support multi-document transactions.
+
+    Transactions require either a replica set or a sharded cluster (mongos).
+    Standalone servers do not support them.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            "Transactions require a MongoDB replica set or sharded cluster. "
+            "The connected server does not support transactions. "
+            "Run without --transactional or connect to a replica set or sharded cluster."
+        )
