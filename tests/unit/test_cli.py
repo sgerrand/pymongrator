@@ -127,6 +127,16 @@ def test_up_dry_run_default() -> None:
     assert ns.dry_run is False
 
 
+def test_up_transactional_default() -> None:
+    ns = parse("up")
+    assert ns.transactional is False
+
+
+def test_up_transactional_flag() -> None:
+    ns = parse("up", "--transactional")
+    assert ns.transactional is True
+
+
 # ---------------------------------------------------------------------------
 # down
 # ---------------------------------------------------------------------------
@@ -157,6 +167,16 @@ def test_down_dry_run_flag() -> None:
 def test_down_dry_run_default() -> None:
     ns = parse("down")
     assert ns.dry_run is False
+
+
+def test_down_transactional_default() -> None:
+    ns = parse("down")
+    assert ns.transactional is False
+
+
+def test_down_transactional_flag() -> None:
+    ns = parse("down", "--transactional")
+    assert ns.transactional is True
 
 
 def test_down_invalid_steps_type_exits() -> None:
@@ -355,6 +375,32 @@ def test_cmd_up_dry_run_with_pending(capsys: pytest.CaptureFixture[str]) -> None
     assert "001_a" in capsys.readouterr().out
 
 
+def test_cmd_up_passes_transactional_false_by_default(capsys: pytest.CaptureFixture[str]) -> None:
+    mock_runner = MagicMock()
+    mock_runner.up.return_value = []
+    with (
+        patch("mongrator.cli._load_config"),
+        patch("pymongo.MongoClient", return_value=MagicMock()),
+        patch("mongrator.runner.SyncRunner", return_value=mock_runner),
+    ):
+        ns = parse("up")
+        _cmd_up(ns)
+    mock_runner.up.assert_called_once_with(target=None, transactional=False)
+
+
+def test_cmd_up_passes_transactional_true(capsys: pytest.CaptureFixture[str]) -> None:
+    mock_runner = MagicMock()
+    mock_runner.up.return_value = []
+    with (
+        patch("mongrator.cli._load_config"),
+        patch("pymongo.MongoClient", return_value=MagicMock()),
+        patch("mongrator.runner.SyncRunner", return_value=mock_runner),
+    ):
+        ns = parse("up", "--transactional")
+        _cmd_up(ns)
+    mock_runner.up.assert_called_once_with(target=None, transactional=True)
+
+
 def test_cmd_up_dry_run_nothing_to_apply(capsys: pytest.CaptureFixture[str]) -> None:
     mock_runner = MagicMock()
     mock_plan = MagicMock()
@@ -420,6 +466,32 @@ def test_cmd_down_dry_run_with_pending(capsys: pytest.CaptureFixture[str]) -> No
         rc = _cmd_down(ns)
     assert rc == 0
     assert "002_b" in capsys.readouterr().out
+
+
+def test_cmd_down_passes_transactional_false_by_default(capsys: pytest.CaptureFixture[str]) -> None:
+    mock_runner = MagicMock()
+    mock_runner.down.return_value = []
+    with (
+        patch("mongrator.cli._load_config"),
+        patch("pymongo.MongoClient", return_value=MagicMock()),
+        patch("mongrator.runner.SyncRunner", return_value=mock_runner),
+    ):
+        ns = parse("down")
+        _cmd_down(ns)
+    mock_runner.down.assert_called_once_with(steps=1, transactional=False)
+
+
+def test_cmd_down_passes_transactional_true(capsys: pytest.CaptureFixture[str]) -> None:
+    mock_runner = MagicMock()
+    mock_runner.down.return_value = []
+    with (
+        patch("mongrator.cli._load_config"),
+        patch("pymongo.MongoClient", return_value=MagicMock()),
+        patch("mongrator.runner.SyncRunner", return_value=mock_runner),
+    ):
+        ns = parse("down", "--transactional")
+        _cmd_down(ns)
+    mock_runner.down.assert_called_once_with(steps=1, transactional=True)
 
 
 def test_cmd_down_dry_run_nothing_to_rollback(capsys: pytest.CaptureFixture[str]) -> None:
