@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from mongrator.cli import (
+    EXIT_NOTHING_TO_DO,
     _build_parser,
     _cmd_create,
     _cmd_down,
@@ -314,7 +315,39 @@ def test_cmd_up_nothing_to_apply(capsys: pytest.CaptureFixture[str]) -> None:
     ):
         ns = parse("up")
         rc = _cmd_up(ns)
+    assert rc == EXIT_NOTHING_TO_DO
+    assert "Nothing to apply" in capsys.readouterr().out
+
+
+def test_cmd_up_dry_run_with_pending(capsys: pytest.CaptureFixture[str]) -> None:
+    mock_runner = MagicMock()
+    mock_plan = MagicMock()
+    mock_plan.to_apply = [MagicMock(id="001_a")]
+    mock_runner.plan_up.return_value = mock_plan
+    with (
+        patch("mongrator.cli._load_config"),
+        patch("pymongo.MongoClient", return_value=MagicMock()),
+        patch("mongrator.runner.SyncRunner", return_value=mock_runner),
+    ):
+        ns = parse("up", "--dry-run")
+        rc = _cmd_up(ns)
     assert rc == 0
+    assert "001_a" in capsys.readouterr().out
+
+
+def test_cmd_up_dry_run_nothing_to_apply(capsys: pytest.CaptureFixture[str]) -> None:
+    mock_runner = MagicMock()
+    mock_plan = MagicMock()
+    mock_plan.to_apply = []
+    mock_runner.plan_up.return_value = mock_plan
+    with (
+        patch("mongrator.cli._load_config"),
+        patch("pymongo.MongoClient", return_value=MagicMock()),
+        patch("mongrator.runner.SyncRunner", return_value=mock_runner),
+    ):
+        ns = parse("up", "--dry-run")
+        rc = _cmd_up(ns)
+    assert rc == EXIT_NOTHING_TO_DO
     assert "Nothing to apply" in capsys.readouterr().out
 
 
@@ -349,7 +382,39 @@ def test_cmd_down_nothing_to_rollback(capsys: pytest.CaptureFixture[str]) -> Non
     ):
         ns = parse("down")
         rc = _cmd_down(ns)
+    assert rc == EXIT_NOTHING_TO_DO
+    assert "Nothing to roll back" in capsys.readouterr().out
+
+
+def test_cmd_down_dry_run_with_pending(capsys: pytest.CaptureFixture[str]) -> None:
+    mock_runner = MagicMock()
+    mock_plan = MagicMock()
+    mock_plan.to_apply = [MagicMock(id="002_b")]
+    mock_runner.plan_down.return_value = mock_plan
+    with (
+        patch("mongrator.cli._load_config"),
+        patch("pymongo.MongoClient", return_value=MagicMock()),
+        patch("mongrator.runner.SyncRunner", return_value=mock_runner),
+    ):
+        ns = parse("down", "--dry-run")
+        rc = _cmd_down(ns)
     assert rc == 0
+    assert "002_b" in capsys.readouterr().out
+
+
+def test_cmd_down_dry_run_nothing_to_rollback(capsys: pytest.CaptureFixture[str]) -> None:
+    mock_runner = MagicMock()
+    mock_plan = MagicMock()
+    mock_plan.to_apply = []
+    mock_runner.plan_down.return_value = mock_plan
+    with (
+        patch("mongrator.cli._load_config"),
+        patch("pymongo.MongoClient", return_value=MagicMock()),
+        patch("mongrator.runner.SyncRunner", return_value=mock_runner),
+    ):
+        ns = parse("down", "--dry-run")
+        rc = _cmd_down(ns)
+    assert rc == EXIT_NOTHING_TO_DO
     assert "Nothing to roll back" in capsys.readouterr().out
 
 

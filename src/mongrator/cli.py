@@ -7,6 +7,13 @@ Subcommands:
     up       — apply pending migrations
     down     — roll back applied migrations
     validate — verify checksums of applied migrations
+
+Exit codes:
+    0   — success (changes applied / rolled back, or read-only command succeeded)
+    1   — runtime error (MigratorError)
+    2   — CLI usage error (invalid arguments, missing subcommand)
+    4   — already up-to-date (no migrations to apply or roll back)
+    130 — interrupted (KeyboardInterrupt / Ctrl-C)
 """
 
 import argparse
@@ -22,6 +29,10 @@ from pymongo import AsyncMongoClient
 from .config import MigratorConfig
 from .exceptions import MigratorError
 from .planner import MigrationPlan
+
+#: Exit code returned when there are no migrations to apply or roll back.
+#: Deliberately avoids ``2``, which argparse uses for CLI usage errors.
+EXIT_NOTHING_TO_DO = 4
 
 
 def _positive_int(value: str) -> int:
@@ -183,14 +194,14 @@ def _cmd_up(args: argparse.Namespace) -> int:
         if args.dry_run:
             plan = runner.plan_up(target=args.target)
             _print_dry_run(plan, direction="up")
-            return 0
+            return EXIT_NOTHING_TO_DO if not plan.to_apply else 0
         applied = runner.up(target=args.target)
     if applied:
         for mid in applied:
             print(f"  applied  {mid}")
-    else:
-        print("Nothing to apply.")
-    return 0
+        return 0
+    print("Nothing to apply.")
+    return EXIT_NOTHING_TO_DO
 
 
 async def _async_up(config: MigratorConfig, target: str | None, *, dry_run: bool = False) -> int:
@@ -202,14 +213,14 @@ async def _async_up(config: MigratorConfig, target: str | None, *, dry_run: bool
             if dry_run:
                 plan = await runner.plan_up(target=target)
                 _print_dry_run(plan, direction="up")
-                return 0
+                return EXIT_NOTHING_TO_DO if not plan.to_apply else 0
             applied = await runner.up(target=target)
     if applied:
         for mid in applied:
             print(f"  applied  {mid}")
-    else:
-        print("Nothing to apply.")
-    return 0
+        return 0
+    print("Nothing to apply.")
+    return EXIT_NOTHING_TO_DO
 
 
 def _cmd_down(args: argparse.Namespace) -> int:
@@ -223,14 +234,14 @@ def _cmd_down(args: argparse.Namespace) -> int:
         if args.dry_run:
             plan = runner.plan_down(steps=args.steps)
             _print_dry_run(plan, direction="down")
-            return 0
+            return EXIT_NOTHING_TO_DO if not plan.to_apply else 0
         rolled_back = runner.down(steps=args.steps)
     if rolled_back:
         for mid in rolled_back:
             print(f"  rolled back  {mid}")
-    else:
-        print("Nothing to roll back.")
-    return 0
+        return 0
+    print("Nothing to roll back.")
+    return EXIT_NOTHING_TO_DO
 
 
 async def _async_down(config: MigratorConfig, steps: int, *, dry_run: bool = False) -> int:
@@ -242,14 +253,14 @@ async def _async_down(config: MigratorConfig, steps: int, *, dry_run: bool = Fal
             if dry_run:
                 plan = await runner.plan_down(steps=steps)
                 _print_dry_run(plan, direction="down")
-                return 0
+                return EXIT_NOTHING_TO_DO if not plan.to_apply else 0
             rolled_back = await runner.down(steps=steps)
     if rolled_back:
         for mid in rolled_back:
             print(f"  rolled back  {mid}")
-    else:
-        print("Nothing to roll back.")
-    return 0
+        return 0
+    print("Nothing to roll back.")
+    return EXIT_NOTHING_TO_DO
 
 
 def _cmd_validate(args: argparse.Namespace) -> int:
