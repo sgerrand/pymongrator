@@ -5,7 +5,7 @@ requires = [ "uv-build>=0.8.20,<0.12" ]
 
 [project]
 name = "mongrator"
-version = "0.3.0"
+version = "0.4.0"
 description = "Lightweight MongoDB schema migration tool"
 readme = "README.md"
 keywords = [ "database", "migration", "mongodb", "pymongo", "schema" ]

@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.4.0](https://github.com/sgerrand/pymongrator/compare/v0.3.0...v0.4.0) (2026-04-26)
+
+
+### Features
+
+* **cli:** add distinct exit code for no-op migrations ([#31](https://github.com/sgerrand/pymongrator/issues/31)) ([214e1c3](https://github.com/sgerrand/pymongrator/commit/214e1c306ab03833b9d7fbc419270b14fb8be1fa))
+* **config:** add .env file support for configuration ([#35](https://github.com/sgerrand/pymongrator/issues/35)) ([7e0bd14](https://github.com/sgerrand/pymongrator/commit/7e0bd14d8c07be8fc37f77244c251a7888e6b204))
+* **ops:** add reversibility check for operations ([#30](https://github.com/sgerrand/pymongrator/issues/30)) ([f6c74ec](https://github.com/sgerrand/pymongrator/commit/f6c74ec05a99b51e5de8d3fd59c2b8e64b261398))
+* **runner:** add optional transaction support for migrations ([#37](https://github.com/sgerrand/pymongrator/issues/37)) ([7b408fe](https://github.com/sgerrand/pymongrator/commit/7b408fe496f1fd7cc59e4ae75186c49761dfd8e6))
+* **runner:** support async migration functions in AsyncRunner ([#36](https://github.com/sgerrand/pymongrator/issues/36)) ([210120b](https://github.com/sgerrand/pymongrator/commit/210120bfc75996993a5387ca993689c2c61ff611))
+* **status:** detect orphaned migration records ([#32](https://github.com/sgerrand/pymongrator/issues/32)) ([356c28a](https://github.com/sgerrand/pymongrator/commit/356c28a1c15c9dd7b0daad2c2a5a7b8617dc134e))
+
+
+### Documentation
+
+* **ops:** explain ty type narrowing suppression in drop_index ([#34](https://github.com/sgerrand/pymongrator/issues/34)) ([65ff14e](https://github.com/sgerrand/pymongrator/commit/65ff14e531ebed8fe6f2fbc5c8f761f5e23f7fa5))
+* **runner:** document lock-free read-only commands ([#33](https://github.com/sgerrand/pymongrator/issues/33)) ([f574c53](https://github.com/sgerrand/pymongrator/commit/f574c5315960c6cd33c66fd53c9b5770b9def04c))
+
 ## [0.3.0](https://github.com/sgerrand/pymongrator/compare/v0.2.1...v0.3.0) (2026-04-10)
 
 
