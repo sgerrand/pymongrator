@@ -9,9 +9,11 @@ Subcommands:
     validate — verify checksums of applied migrations
 
 Exit codes:
-    0 — changes were applied / rolled back successfully
-    1 — an error occurred
-    2 — already up-to-date (no migrations to apply or roll back)
+    0   — success (changes applied / rolled back, or read-only command succeeded)
+    1   — runtime error (MigratorError)
+    2   — CLI usage error (invalid arguments, missing subcommand)
+    4   — already up-to-date (no migrations to apply or roll back)
+    130 — interrupted (KeyboardInterrupt / Ctrl-C)
 """
 
 import argparse
@@ -29,7 +31,8 @@ from .exceptions import MigratorError
 from .planner import MigrationPlan
 
 #: Exit code returned when there are no migrations to apply or roll back.
-EXIT_NOTHING_TO_DO = 2
+#: Deliberately avoids ``2``, which argparse uses for CLI usage errors.
+EXIT_NOTHING_TO_DO = 4
 
 
 def _positive_int(value: str) -> int:
