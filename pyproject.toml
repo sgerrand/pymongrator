@@ -28,6 +28,7 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
+  "click>=8",
   "pymongo>=4.10",
 ]
 

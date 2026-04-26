@@ -440,6 +440,7 @@ name = "mongrator"
 version = "0.3.0"
 source = { editable = "." }
 dependencies = [
+    { name = "click" },
     { name = "pymongo" },
 ]
 
@@ -460,7 +461,10 @@ docs = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pymongo", specifier = ">=4.10" }]
+requires-dist = [
+    { name = "click", specifier = ">=8.0" },
+    { name = "pymongo", specifier = ">=4.10" },
+]
 
 [package.metadata.requires-dev]
 dev = [

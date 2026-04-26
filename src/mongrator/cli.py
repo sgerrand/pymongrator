@@ -16,13 +16,13 @@ Exit codes:
     130 — interrupted (KeyboardInterrupt / Ctrl-C)
 """
 
-import argparse
 import asyncio
 import sys
 from datetime import UTC, datetime
 from importlib.resources import files
 from pathlib import Path
 
+import click
 import pymongo
 from pymongo import AsyncMongoClient
 
@@ -31,76 +31,26 @@ from .exceptions import MigratorError
 from .planner import MigrationPlan
 
 #: Exit code returned when there are no migrations to apply or roll back.
-#: Deliberately avoids ``2``, which argparse uses for CLI usage errors.
+#: Deliberately avoids ``2``, which click uses for CLI usage errors.
 EXIT_NOTHING_TO_DO = 4
 
 
-def _positive_int(value: str) -> int:
-    """Argparse type that accepts only positive integers (>= 1)."""
-    try:
-        n = int(value)
-    except ValueError:
-        raise argparse.ArgumentTypeError(f"invalid int value: '{value}'")
-    if n < 1:
-        raise argparse.ArgumentTypeError(f"steps must be >= 1, got {n}")
-    return n
+class _PositiveInt(click.ParamType):
+    """Click parameter type that accepts only positive integers (>= 1)."""
+
+    name = "positive_int"
+
+    def convert(self, value: str, param: click.Parameter | None, ctx: click.Context | None) -> int:
+        try:
+            n = int(value)
+        except (ValueError, TypeError):
+            self.fail(f"invalid int value: '{value}'", param, ctx)
+        if n < 1:
+            self.fail(f"steps must be >= 1, got {n}", param, ctx)
+        return n
 
 
-def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="mongrator",
-        description="Lightweight MongoDB schema migration tool",
-    )
-    parser.add_argument(
-        "--config",
-        metavar="PATH",
-        default="mongrator.toml",
-        help="path to config file (default: mongrator.toml)",
-    )
-
-    sub = parser.add_subparsers(dest="command", metavar="COMMAND")
-    sub.required = True
-
-    # init
-    sub.add_parser("init", help="create migrations directory and config stub")
-
-    # create
-    p_create = sub.add_parser("create", help="generate a new migration file")
-    p_create.add_argument("name", help="short description, e.g. add_users_email_index")
-
-    # status
-    sub.add_parser("status", help="show applied/pending migration table")
-
-    # up
-    p_up = sub.add_parser("up", help="apply pending migrations")
-    p_up.add_argument("--target", metavar="ID", help="apply only up to this migration ID")
-    p_up.add_argument("--async", dest="use_async", action="store_true", help="use async runner")
-    p_up.add_argument("--dry-run", action="store_true", help="show which migrations would be applied without executing")
-    p_up.add_argument(
-        "--transactional",
-        action="store_true",
-        help="wrap each migration in a MongoDB transaction (requires replica set)",
-    )
-
-    # down
-    p_down = sub.add_parser("down", help="roll back applied migrations")
-    p_down.add_argument(
-        "--steps", type=_positive_int, default=1, metavar="N", help="number of migrations to roll back (default: 1)"
-    )
-    p_down.add_argument("--async", dest="use_async", action="store_true", help="use async runner")
-    p_down.add_argument(
-        "--dry-run", action="store_true", help="show which migrations would be rolled back without executing"
-    )
-    p_down.add_argument(
-        "--transactional",
-        action="store_true",
-        help="wrap each migration in a MongoDB transaction (requires replica set)",
-    )
-
-    # validate
-    sub.add_parser("validate", help="verify checksums of applied migration files")
-
-    return parser
+POSITIVE_INT = _PositiveInt()
 
 
 def _print_dry_run(plan: MigrationPlan, *, direction: str) -> None:
@@ -118,20 +68,36 @@ def _print_dry_run(plan: MigrationPlan, *, direction: str) -> None:
         header = "Migrations that would be rolled back:"
 
     if not plan.to_apply:
-        print(empty_msg)
+        click.echo(empty_msg)
         return
 
-    print(header)
+    click.echo(header)
     for m in plan.to_apply:
-        print(f"  {action}  {m.id}")
+        click.echo(f"  {action}  {m.id}")
 
 
-def _load_config(args: argparse.Namespace) -> MigratorConfig:
-    config_path = Path(args.config)
-    if config_path.exists():
-        return MigratorConfig.from_toml(config_path)
+def _load_config(config_path: str) -> MigratorConfig:
+    path = Path(config_path)
+    if path.exists():
+        return MigratorConfig.from_toml(path)
     dotenv_path = Path(".env")
     return MigratorConfig.from_env(dotenv_path=dotenv_path if dotenv_path.is_file() else None)
+
+
+# ---------------------------------------------------------------------------
+# CLI group
+# ---------------------------------------------------------------------------
+
+
+@click.group(context_settings={"help_option_names": ["-h", "--help"]})
+@click.option("--config", "config_path", default="mongrator.toml", metavar="PATH", help="Path to config file.")
+@click.pass_context
+def cli(ctx: click.Context, config_path: str) -> None:
+    """Lightweight MongoDB schema migration tool."""
+    ctx.ensure_object(dict)
+    ctx.obj["config_path"] = config_path
+    if ctx.invoked_subcommand is None:
+        raise click.UsageError("Missing command.", ctx=ctx)
 
 
 # ---------------------------------------------------------------------------
@@ -139,26 +105,32 @@ def _load_config(args: argparse.Namespace) -> MigratorConfig:
 # ---------------------------------------------------------------------------
 
 
-def _cmd_init(args: argparse.Namespace) -> int:
-    config_path = Path(args.config)
+@cli.command()
+@click.pass_context
+def init(ctx: click.Context) -> None:
+    """Create migrations directory and config stub."""
+    config_path = Path(ctx.obj["config_path"])
     if not config_path.exists():
         config_path.write_text(
             '[mongrator]\nuri = "mongodb://localhost:27017"\ndatabase = "mydb"\n'
             'migrations_dir = "migrations"\ncollection = "mongrator_migrations"\n'
         )
-        print(f"Created {config_path}")
+        click.echo(f"Created {config_path}")
 
     migrations_dir = Path("migrations")
     migrations_dir.mkdir(exist_ok=True)
-    print(f"Created {migrations_dir}/")
-    return 0
+    click.echo(f"Created {migrations_dir}/")
 
 
-def _cmd_create(args: argparse.Namespace) -> int:
-    config = _load_config(args)
+@cli.command()
+@click.argument("name")
+@click.pass_context
+def create(ctx: click.Context, name: str) -> None:
+    """Generate a new migration file."""
+    config = _load_config(ctx.obj["config_path"])
     config.migrations_dir.mkdir(parents=True, exist_ok=True)
 
-    slug = args.name.strip().replace(" ", "_").lower()
+    slug = name.strip().replace(" ", "_").lower()
     timestamp = datetime.now(tz=UTC).strftime("%Y%m%d_%H%M%S")
     filename = f"{timestamp}_{slug}.py"
     dest = config.migrations_dir / filename
@@ -166,25 +138,27 @@ def _cmd_create(args: argparse.Namespace) -> int:
     template_text = files("mongrator._templates").joinpath("migration.py.tmpl").read_text(encoding="utf-8")
     content = template_text.format(slug=slug, timestamp=timestamp)
     dest.write_text(content, encoding="utf-8")
-    print(f"Created {dest}")
-    return 0
+    click.echo(f"Created {dest}")
 
 
-def _cmd_status(args: argparse.Namespace) -> int:
+@cli.command()
+@click.pass_context
+def status(ctx: click.Context) -> None:
+    """Show applied/pending migration table."""
     from .runner import SyncRunner
 
-    config = _load_config(args)
+    config = _load_config(ctx.obj["config_path"])
     with pymongo.MongoClient(config.uri) as client:
         runner = SyncRunner(client, config)
         statuses = runner.status()
 
     if not statuses:
-        print("No migrations found.")
-        return 0
+        click.echo("No migrations found.")
+        return
 
     col_width = max(len(s.id) for s in statuses) + 2
-    print(f"{'Migration':<{col_width}} {'Status':<10} {'Applied At'}")
-    print("-" * (col_width + 30))
+    click.echo(f"{'Migration':<{col_width}} {'Status':<10} {'Applied At'}")
+    click.echo("-" * (col_width + 30))
     for s in statuses:
         if s.orphaned:
             state = "ORPHANED"
@@ -195,29 +169,43 @@ def _cmd_status(args: argparse.Namespace) -> int:
         else:
             state = "pending"
         applied_at = s.applied_at.isoformat() if s.applied_at else "-"
-        print(f"{s.id:<{col_width}} {state:<10} {applied_at}")
-    return 0
+        click.echo(f"{s.id:<{col_width}} {state:<10} {applied_at}")
 
 
-def _cmd_up(args: argparse.Namespace) -> int:
-    config = _load_config(args)
-    if args.use_async:
-        return asyncio.run(_async_up(config, args.target, dry_run=args.dry_run, transactional=args.transactional))
+@cli.command()
+@click.option("--target", metavar="ID", default=None, help="Apply only up to this migration ID.")
+@click.option("--async", "use_async", is_flag=True, default=False, help="Use async runner.")
+@click.option("--dry-run", is_flag=True, default=False, help="Show migrations that would be applied.")
+@click.option(
+    "--transactional",
+    is_flag=True,
+    default=False,
+    help="Wrap each migration in a MongoDB transaction (requires replica set).",
+)
+@click.pass_context
+def up(ctx: click.Context, target: str | None, use_async: bool, dry_run: bool, transactional: bool) -> None:
+    """Apply pending migrations."""
+    config = _load_config(ctx.obj["config_path"])
+    if use_async:
+        rc = asyncio.run(_async_up(config, target, dry_run=dry_run, transactional=transactional))
+        ctx.exit(rc)
+        return
     from .runner import SyncRunner
 
     with pymongo.MongoClient(config.uri) as client:
         runner = SyncRunner(client, config)
-        if args.dry_run:
-            plan = runner.plan_up(target=args.target)
+        if dry_run:
+            plan = runner.plan_up(target=target)
             _print_dry_run(plan, direction="up")
-            return EXIT_NOTHING_TO_DO if not plan.to_apply else 0
-        applied = runner.up(target=args.target, transactional=args.transactional)
+            ctx.exit(EXIT_NOTHING_TO_DO if not plan.to_apply else 0)
+            return
+        applied = runner.up(target=target, transactional=transactional)
     if applied:
         for mid in applied:
-            print(f"  applied  {mid}")
-        return 0
-    print("Nothing to apply.")
-    return EXIT_NOTHING_TO_DO
+            click.echo(f"  applied  {mid}")
+        return
+    click.echo("Nothing to apply.")
+    ctx.exit(EXIT_NOTHING_TO_DO)
 
 
 async def _async_up(
@@ -239,31 +227,46 @@ async def _async_up(
             applied = await runner.up(target=target, transactional=transactional)
     if applied:
         for mid in applied:
-            print(f"  applied  {mid}")
+            click.echo(f"  applied  {mid}")
         return 0
-    print("Nothing to apply.")
+    click.echo("Nothing to apply.")
     return EXIT_NOTHING_TO_DO
 
 
-def _cmd_down(args: argparse.Namespace) -> int:
-    config = _load_config(args)
-    if args.use_async:
-        return asyncio.run(_async_down(config, args.steps, dry_run=args.dry_run, transactional=args.transactional))
+@cli.command()
+@click.option("--steps", type=POSITIVE_INT, default=1, metavar="N", help="Number of migrations to roll back.")
+@click.option("--async", "use_async", is_flag=True, default=False, help="Use async runner.")
+@click.option("--dry-run", is_flag=True, default=False, help="Show migrations that would be rolled back.")
+@click.option(
+    "--transactional",
+    is_flag=True,
+    default=False,
+    help="Wrap each migration in a MongoDB transaction (requires replica set).",
+)
+@click.pass_context
+def down(ctx: click.Context, steps: int, use_async: bool, dry_run: bool, transactional: bool) -> None:
+    """Roll back applied migrations."""
+    config = _load_config(ctx.obj["config_path"])
+    if use_async:
+        rc = asyncio.run(_async_down(config, steps, dry_run=dry_run, transactional=transactional))
+        ctx.exit(rc)
+        return
     from .runner import SyncRunner
 
     with pymongo.MongoClient(config.uri) as client:
         runner = SyncRunner(client, config)
-        if args.dry_run:
-            plan = runner.plan_down(steps=args.steps)
+        if dry_run:
+            plan = runner.plan_down(steps=steps)
             _print_dry_run(plan, direction="down")
-            return EXIT_NOTHING_TO_DO if not plan.to_apply else 0
-        rolled_back = runner.down(steps=args.steps, transactional=args.transactional)
+            ctx.exit(EXIT_NOTHING_TO_DO if not plan.to_apply else 0)
+            return
+        rolled_back = runner.down(steps=steps, transactional=transactional)
     if rolled_back:
         for mid in rolled_back:
-            print(f"  rolled back  {mid}")
-        return 0
-    print("Nothing to roll back.")
-    return EXIT_NOTHING_TO_DO
+            click.echo(f"  rolled back  {mid}")
+        return
+    click.echo("Nothing to roll back.")
+    ctx.exit(EXIT_NOTHING_TO_DO)
 
 
 async def _async_down(
@@ -285,29 +288,32 @@ async def _async_down(
             rolled_back = await runner.down(steps=steps, transactional=transactional)
     if rolled_back:
         for mid in rolled_back:
-            print(f"  rolled back  {mid}")
+            click.echo(f"  rolled back  {mid}")
         return 0
-    print("Nothing to roll back.")
+    click.echo("Nothing to roll back.")
     return EXIT_NOTHING_TO_DO
 
 
-def _cmd_validate(args: argparse.Namespace) -> int:
+@cli.command()
+@click.pass_context
+def validate(ctx: click.Context) -> None:
+    """Verify checksums of applied migration files."""
     from .runner import SyncRunner
 
-    config = _load_config(args)
+    config = _load_config(ctx.obj["config_path"])
     with pymongo.MongoClient(config.uri) as client:
         runner = SyncRunner(client, config)
         errors = runner.validate()
 
     if not errors:
-        print("All applied migrations have valid checksums.")
-        return 0
+        click.echo("All applied migrations have valid checksums.")
+        return
 
     eg = ExceptionGroup("Checksum mismatches detected", errors)
-    print(f"error: {eg}", file=sys.stderr)
+    click.echo(f"error: {eg}", err=True)
     for e in errors:
-        print(f"  {e}", file=sys.stderr)
-    return 1
+        click.echo(f"  {e}", err=True)
+    ctx.exit(1)
 
 
 # ---------------------------------------------------------------------------
@@ -316,24 +322,21 @@ def _cmd_validate(args: argparse.Namespace) -> int:
 
 
 def main() -> None:
-    parser = _build_parser()
-    args = parser.parse_args()
-
-    dispatch = {
-        "init": _cmd_init,
-        "create": _cmd_create,
-        "status": _cmd_status,
-        "up": _cmd_up,
-        "down": _cmd_down,
-        "validate": _cmd_validate,
-    }
-
     try:
-        rc = dispatch[args.command](args)
+        cli(standalone_mode=False)
+    except click.exceptions.Abort:
+        sys.exit(130)
+    except click.exceptions.Exit as e:
+        sys.exit(e.exit_code)
+    except click.exceptions.UsageError as e:
+        if e.ctx:
+            click.echo(e.ctx.command.get_usage(e.ctx), err=True)
+        click.echo(f"error: {e.format_message()}", err=True)
+        sys.exit(2)
     except MigratorError as e:
-        print(f"error: {e}", file=sys.stderr)
+        click.echo(f"error: {e}", err=True)
         sys.exit(1)
     except KeyboardInterrupt:
         sys.exit(130)
-
-    sys.exit(rc)
+    else:
+        sys.exit(0)
