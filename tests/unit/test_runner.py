@@ -135,7 +135,7 @@ def test_sync_up_warns_irreversible_ops(tmp_path: Path, capsys: pytest.CaptureFi
 
     captured = capsys.readouterr()
     assert "warning:" in captured.err
-    assert "not auto-reversible" in captured.err
+    assert "non-auto-reversible" in captured.err
     assert "drop_index" in captured.err
 
 
