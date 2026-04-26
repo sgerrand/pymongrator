@@ -61,6 +61,8 @@ jobs:
         run: uv sync --group dev
 
       - name: Unit tests
+        env:
+          COVERAGE_FILE: reports/.coverage.unit
         run: >-
           uv run pytest tests/unit/
           --tb=short
@@ -70,6 +72,8 @@ jobs:
           --cov-report=xml:reports/coverage-unit.xml
 
       - name: Integration tests
+        env:
+          COVERAGE_FILE: reports/.coverage.integration
         run: >-
           uv run pytest tests/integration/
           --tb=short
@@ -77,6 +81,16 @@ jobs:
           --cov=mongrator
           --cov-report=term-missing
           --cov-report=xml:reports/coverage-integration.xml
+
+      - name: Combine coverage
+        run: |
+          uv run coverage combine reports/.coverage.unit reports/.coverage.integration
+          uv run coverage lcov -o reports/lcov.info
+
+      - name: Upload to Coveralls
+        uses: coverallsapp/github-action@5cbfd81b66ca5d10c19b062c04de0199c215fb6e # v2
+        with:
+          file: reports/lcov.info
 
       - name: Upload test reports
         if: always()

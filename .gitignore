@@ -12,5 +12,8 @@ wheels/
 # Documentation build output
 site/
 
+# Code coverage reporting output
+reports/
+
 # Coding agents
 .claude
