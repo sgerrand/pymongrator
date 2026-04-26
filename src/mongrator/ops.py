@@ -25,11 +25,31 @@ from pymongo.database import Database
 
 @dataclass
 class Operation:
-    """An atomic, reversible database operation."""
+    """An atomic database operation, optionally auto-reversible.
+
+    Check ``is_reversible`` before relying on ``revert()``. Operations whose
+    ``is_reversible`` is ``False`` will raise ``NotImplementedError`` from
+    ``revert()`` — a ``down()`` function is required to roll them back.
+    """
 
     description: str
     _apply: Any = field(repr=False)
     _revert: Any = field(repr=False)
+    _is_reversible: bool = field(default=True, repr=False)
+
+    @property
+    def is_reversible(self) -> bool:
+        """Whether ``revert()`` can succeed on a fresh Operation instance.
+
+        The runner's auto-rollback path calls ``up(db)`` a second time to obtain
+        new Operation instances and then calls ``revert()`` on them.  Because
+        these are fresh instances, any state captured during ``apply()`` is not
+        available.  This property returns ``False`` when revert requires such
+        runtime state (e.g. ``drop_index`` without explicit ``keys``) or when
+        the operation is inherently destructive (``drop_field``,
+        ``drop_collection``).
+        """
+        return self._is_reversible
 
     def apply(self, db: Database) -> None:  # type: ignore[type-arg]
         self._apply(db)
@@ -121,6 +141,7 @@ def drop_index(
         description=f"drop_index({collection!r}, {index_name!r})",
         _apply=apply,
         _revert=revert,
+        _is_reversible=_norm_keys is not None,
     )
 
 
@@ -199,6 +220,7 @@ def drop_field(
         description=f"drop_field({collection!r}, {field_name!r})",
         _apply=apply,
         _revert=revert,
+        _is_reversible=False,
     )
 
 
@@ -237,4 +259,5 @@ def drop_collection(collection: str) -> Operation:
         description=f"drop_collection({collection!r})",
         _apply=apply,
         _revert=revert,
+        _is_reversible=False,
     )
