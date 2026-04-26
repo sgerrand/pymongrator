@@ -20,7 +20,7 @@ def _load_dotenv(path: Path) -> dict[str, str]:
     env: dict[str, str] = {}
     try:
         text = path.read_text(encoding="utf-8")
-    except FileNotFoundError:
+    except OSError:
         return env
 
     for line in text.splitlines():
@@ -89,7 +89,11 @@ class MigratorConfig:
             dotenv = _load_dotenv(dotenv_path)
 
         def _get(key: str, default: str | None = None) -> str | None:
-            return os.environ.get(key) or dotenv.get(key) or default
+            if key in os.environ:
+                return os.environ[key]
+            if key in dotenv:
+                return dotenv[key]
+            return default
 
         uri = _get("MONGRATOR_URI")
         database = _get("MONGRATOR_DB")
