@@ -96,7 +96,10 @@ async def _async_run_up_migration(migration: MigrationFile, async_db: Any, sync_
     if up_fn is None:
         return
     if inspect.iscoroutinefunction(up_fn):
-        await up_fn(async_db)
+        result = await up_fn(async_db)
+        if isinstance(result, list) and all(isinstance(op, Operation) for op in result):
+            for op in cast(list[Operation], result):
+                op.apply(sync_db)
         return
     result = up_fn(sync_db)
     if isinstance(result, list) and all(isinstance(op, Operation) for op in result):
