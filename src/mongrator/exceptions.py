@@ -87,11 +87,15 @@ class MigrationLockError(MigratorError):
 
 
 class TransactionNotSupportedError(MigratorError):
-    """The MongoDB server does not support transactions (requires a replica set)."""
+    """The MongoDB server does not support multi-document transactions.
+
+    Transactions require either a replica set or a sharded cluster (mongos).
+    Standalone servers do not support them.
+    """
 
     def __init__(self) -> None:
         super().__init__(
-            "Transactions require a MongoDB replica set. "
+            "Transactions require a MongoDB replica set or sharded cluster. "
             "The connected server does not support transactions. "
-            "Run without --transactional or configure a replica set."
+            "Run without --transactional or connect to a replica set or sharded cluster."
         )
