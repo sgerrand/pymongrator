@@ -25,7 +25,12 @@ from pymongo.database import Database
 
 @dataclass
 class Operation:
-    """An atomic, reversible database operation."""
+    """An atomic database operation, optionally auto-reversible.
+
+    Check ``is_reversible`` before relying on ``revert()``. Operations whose
+    ``is_reversible`` is ``False`` will raise ``NotImplementedError`` from
+    ``revert()`` — a ``down()`` function is required to roll them back.
+    """
 
     description: str
     _apply: Any = field(repr=False)
