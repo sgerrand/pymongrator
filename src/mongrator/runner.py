@@ -6,6 +6,7 @@ AsyncRunner wraps a pymongo AsyncMongoClient.
 Both share the same non-IO logic via loader and planner.
 """
 
+import inspect
 import sys
 import time
 from typing import Any, Protocol, cast, runtime_checkable
@@ -79,6 +80,52 @@ def _run_down_migration(migration: MigrationFile, db: Any) -> None:
     if isinstance(result, list) and all(isinstance(op, Operation) for op in result):
         for op in reversed(cast(list[Operation], result)):
             op.revert(db)  # type: ignore[arg-type]
+        return
+    raise NoDownMethodError(migration.id)
+
+
+async def _async_run_up_migration(migration: MigrationFile, async_db: Any, sync_db: Any) -> None:
+    """Execute the up() callable, dispatching to async or sync path as needed.
+
+    If up() is a coroutine function, it receives the async database and is awaited.
+    If up() returns a list of Operations, those are applied using the sync database
+    (ops helpers are synchronous). Otherwise, the sync database is passed directly
+    for backwards compatibility.
+    """
+    up_fn = migration.up
+    if up_fn is None:
+        return
+    if inspect.iscoroutinefunction(up_fn):
+        await up_fn(async_db)
+        return
+    result = up_fn(sync_db)
+    if isinstance(result, list) and all(isinstance(op, Operation) for op in result):
+        for op in cast(list[Operation], result):
+            op.apply(sync_db)
+
+
+async def _async_run_down_migration(migration: MigrationFile, async_db: Any, sync_db: Any) -> None:
+    """Execute the down() callable, dispatching to async or sync path as needed.
+
+    If down() is a coroutine function, it receives the async database and is awaited.
+    If no down() exists, auto-rollback via ops is attempted using the sync database.
+    Otherwise, the sync database is passed for backwards compatibility.
+    """
+    down_fn = migration.down
+    if down_fn is not None:
+        if inspect.iscoroutinefunction(down_fn):
+            await down_fn(async_db)
+            return
+        down_fn(sync_db)
+        return
+    # Try auto-rollback via ops returned from up()
+    up_fn = migration.up
+    if up_fn is None:
+        raise NoDownMethodError(migration.id)
+    result = up_fn(sync_db)
+    if isinstance(result, list) and all(isinstance(op, Operation) for op in result):
+        for op in reversed(cast(list[Operation], result)):
+            op.revert(sync_db)
         return
     raise NoDownMethodError(migration.id)
 
@@ -193,8 +240,17 @@ class SyncRunner:
 class AsyncRunner:
     """Asynchronous migration runner backed by pymongo AsyncMongoClient.
 
-    Migration up()/down() functions always receive a synchronous pymongo Database
-    because ops helpers are synchronous. Only state tracking uses the async client.
+    Migration functions are dispatched based on their type:
+
+    - **Coroutine functions** (``async def up(db)``) receive the async database
+      and are awaited. This allows migrations to use ``await`` for non-blocking
+      I/O when running with ``--async``.
+    - **Regular functions** that return a ``list[Operation]`` (ops-based migrations)
+      continue to receive the sync database, since ops helpers are synchronous.
+    - **Regular functions** that perform raw pymongo calls also receive the sync
+      database, preserving backwards compatibility.
+
+    State tracking always uses the async client for non-blocking operation.
     """
 
     def __init__(  # type: ignore[type-arg]
@@ -204,15 +260,16 @@ class AsyncRunner:
         *,
         sync_client: "MongoClient | None" = None,
     ) -> None:
-        # Sync DB passed to migration functions — ops helpers are synchronous pymongo.
+        # Sync DB passed to sync migration functions and ops helpers.
         if sync_client is None:
             sync_client = MongoClient(config.uri)
         self._sync_client = sync_client
         self._db = sync_client[config.database]
+        # Async DB passed to coroutine migration functions.
+        self._async_db = client[config.database]
         # Async store for non-blocking state tracking.
-        async_db = client[config.database]
-        self._store = AsyncMongoStateStore(async_db[config.collection])
-        self._lock = AsyncMigrationLock(async_db[config.collection])
+        self._store = AsyncMongoStateStore(self._async_db[config.collection])
+        self._lock = AsyncMigrationLock(self._async_db[config.collection])
         self._config = config
 
     async def plan_up(self, target: MigrationId | None = None) -> MigrationPlan:
@@ -228,7 +285,11 @@ class AsyncRunner:
         return planner.plan_down(files, applied, steps)
 
     async def up(self, target: MigrationId | None = None) -> list[MigrationId]:
-        """Apply pending migrations, optionally up to `target`."""
+        """Apply pending migrations, optionally up to `target`.
+
+        Coroutine migration functions receive the async database and are awaited;
+        sync functions and ops-based migrations use the sync database.
+        """
         async with self._lock:
             files = loader.load(self._config)
             applied = await self._store.get_applied()
@@ -236,14 +297,18 @@ class AsyncRunner:
             applied_ids: list[MigrationId] = []
             for migration in plan.to_apply:
                 start = time.monotonic()
-                _run_up_migration(migration, self._db)
+                await _async_run_up_migration(migration, self._async_db, self._db)
                 duration_ms = int((time.monotonic() - start) * 1000)
                 await self._store.record_applied(make_record(migration.id, migration.checksum, "up", duration_ms))
                 applied_ids.append(migration.id)
             return applied_ids
 
     async def down(self, steps: int = 1) -> list[MigrationId]:
-        """Roll back the most recently applied migrations."""
+        """Roll back the most recently applied migrations.
+
+        Coroutine migration functions receive the async database and are awaited;
+        sync functions and ops-based migrations use the sync database.
+        """
         async with self._lock:
             files = loader.load(self._config)
             applied = await self._store.get_applied()
@@ -251,7 +316,7 @@ class AsyncRunner:
             rolled_back: list[MigrationId] = []
             for migration in plan.to_apply:
                 start = time.monotonic()
-                _run_down_migration(migration, self._db)
+                await _async_run_down_migration(migration, self._async_db, self._db)
                 duration_ms = int((time.monotonic() - start) * 1000)
                 await self._store.record_applied(make_record(migration.id, migration.checksum, "down", duration_ms))
                 rolled_back.append(migration.id)
