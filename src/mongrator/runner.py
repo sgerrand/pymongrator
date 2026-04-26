@@ -133,20 +133,72 @@ async def _async_run_down_migration(migration: MigrationFile, async_db: Any, syn
     raise NoDownMethodError(migration.id)
 
 
+class _SessionBoundCollection:
+    """Wraps a pymongo Collection, injecting ``session=`` into every call."""
+
+    def __init__(self, collection: Any, session: Any) -> None:
+        self._collection = collection
+        self._session = session
+
+    def __getitem__(self, name: str) -> "_SessionBoundCollection":
+        return _SessionBoundCollection(self._collection[name], self._session)
+
+    def __getattr__(self, name: str) -> Any:
+        attr = getattr(self._collection, name)
+        if callable(attr):
+            session = self._session
+
+            def _bound(*args: Any, **kwargs: Any) -> Any:
+                kwargs.setdefault("session", session)
+                return attr(*args, **kwargs)
+
+            return _bound
+        return attr
+
+
+class _SessionBoundDatabase:
+    """Wraps a pymongo Database, injecting ``session=`` into every collection/db call.
+
+    Passed to migration functions and ops helpers when running under a
+    transaction so that every pymongo operation is part of the session.
+    """
+
+    def __init__(self, db: Any, session: Any) -> None:
+        self._db = db
+        self._session = session
+
+    def __getitem__(self, name: str) -> _SessionBoundCollection:
+        return _SessionBoundCollection(self._db[name], self._session)
+
+    def __getattr__(self, name: str) -> Any:
+        attr = getattr(self._db, name)
+        # Collection accessed via attribute (e.g. db.users)
+        if hasattr(attr, "insert_one"):
+            return _SessionBoundCollection(attr, self._session)
+        if callable(attr):
+            session = self._session
+
+            def _bound(*args: Any, **kwargs: Any) -> Any:
+                kwargs.setdefault("session", session)
+                return attr(*args, **kwargs)
+
+            return _bound
+        return attr
+
+
 def _check_transaction_support(client: Any) -> None:
     """Verify the server supports transactions (replica set or sharded cluster).
 
-    Raises TransactionNotSupportedError if the topology does not support
-    multi-document transactions.
+    Issues a ``hello`` command to inspect the topology. Connection and
+    authentication errors propagate as-is. Only raises
+    TransactionNotSupportedError when the server is confirmed to be a
+    standalone (neither a replica set member nor a mongos router).
     """
-    try:
-        with client.start_session() as session:
-            session.start_transaction()
-            session.abort_transaction()
-    except Exception as exc:  # noqa: BLE001
-        # pymongo raises various errors when transactions are unsupported
-        # (e.g. ConfigurationError for standalone servers).
-        raise TransactionNotSupportedError from exc
+    result = client.admin.command("hello")
+    is_replica_set = bool(result.get("setName"))
+    is_sharded = result.get("msg") == "isdbgrid"
+    if not (is_replica_set or is_sharded):
+        raise TransactionNotSupportedError
 
 
 class SyncRunner:
@@ -192,7 +244,7 @@ class SyncRunner:
                 if transactional:
                     with self._client.start_session() as session:
                         with session.start_transaction():
-                            _run_up_migration(migration, self._db)
+                            _run_up_migration(migration, _SessionBoundDatabase(self._db, session))
                 else:
                     _run_up_migration(migration, self._db)
                 duration_ms = int((time.monotonic() - start) * 1000)
@@ -221,7 +273,7 @@ class SyncRunner:
                 if transactional:
                     with self._client.start_session() as session:
                         with session.start_transaction():
-                            _run_down_migration(migration, self._db)
+                            _run_down_migration(migration, _SessionBoundDatabase(self._db, session))
                 else:
                     _run_down_migration(migration, self._db)
                 duration_ms = int((time.monotonic() - start) * 1000)
@@ -356,7 +408,9 @@ class AsyncRunner:
                 if transactional:
                     with self._sync_client.start_session() as session:
                         with session.start_transaction():
-                            await _async_run_up_migration(migration, self._async_db, self._db)
+                            await _async_run_up_migration(
+                                migration, self._async_db, _SessionBoundDatabase(self._db, session)
+                            )
                 else:
                     await _async_run_up_migration(migration, self._async_db, self._db)
                 duration_ms = int((time.monotonic() - start) * 1000)
@@ -388,7 +442,9 @@ class AsyncRunner:
                 if transactional:
                     with self._sync_client.start_session() as session:
                         with session.start_transaction():
-                            await _async_run_down_migration(migration, self._async_db, self._db)
+                            await _async_run_down_migration(
+                                migration, self._async_db, _SessionBoundDatabase(self._db, session)
+                            )
                 else:
                     await _async_run_down_migration(migration, self._async_db, self._db)
                 duration_ms = int((time.monotonic() - start) * 1000)

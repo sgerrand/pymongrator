@@ -8,10 +8,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from mongrator.config import MigratorConfig
-from mongrator.exceptions import MigrationLockError, NoDownMethodError
+from mongrator.exceptions import MigrationLockError, NoDownMethodError, TransactionNotSupportedError
 from mongrator.migration import MigrationFile
 from mongrator.ops import create_index, drop_index
-from mongrator.runner import AsyncRunner, SyncRunner
+from mongrator.runner import AsyncRunner, SyncRunner, _check_transaction_support
 from mongrator.state import make_record
 
 # ---------------------------------------------------------------------------
@@ -97,6 +97,101 @@ def _async_migration(
         setattr(mod, "down", async_down)
 
     return MigrationFile(id=migration_id, path=Path(f"{migration_id}.py"), checksum="abc", module=mod)
+
+
+# ---------------------------------------------------------------------------
+# _check_transaction_support
+# ---------------------------------------------------------------------------
+
+
+def test_check_transaction_support_raises_for_standalone() -> None:
+    client = MagicMock()
+    client.admin.command.return_value = {"isWritablePrimary": True}
+    with pytest.raises(TransactionNotSupportedError):
+        _check_transaction_support(client)
+
+
+def test_check_transaction_support_passes_for_replica_set() -> None:
+    client = MagicMock()
+    client.admin.command.return_value = {"isWritablePrimary": True, "setName": "rs0"}
+    _check_transaction_support(client)  # should not raise
+
+
+def test_check_transaction_support_passes_for_sharded_cluster() -> None:
+    client = MagicMock()
+    client.admin.command.return_value = {"msg": "isdbgrid"}
+    _check_transaction_support(client)  # should not raise
+
+
+def test_check_transaction_support_propagates_connection_error() -> None:
+    client = MagicMock()
+    client.admin.command.side_effect = ConnectionError("unreachable")
+    with pytest.raises(ConnectionError):
+        _check_transaction_support(client)
+
+
+# ---------------------------------------------------------------------------
+# SyncRunner transactional — session injection
+# ---------------------------------------------------------------------------
+
+
+def _transactional_runner(tmp_path: Path) -> tuple[SyncRunner, MagicMock, MagicMock, MagicMock]:
+    """Return (runner, mock_db, mock_store, mock_session).
+
+    Configures the client to report a replica set and exposes the session
+    that will be bound inside ``with client.start_session() as session:``.
+    """
+    runner, db, store = _sync_runner(tmp_path)
+    runner._client.admin.command.return_value = {"setName": "rs0"}
+    mock_session = runner._client.start_session.return_value.__enter__.return_value
+    return runner, db, store, mock_session
+
+
+def test_sync_up_transactional_injects_session_into_migration(tmp_path: Path) -> None:
+    runner, db, store, mock_session = _transactional_runner(tmp_path)
+
+    def up_fn(received_db: Any) -> None:
+        received_db["col"].insert_one({"x": 1})
+
+    mod = types.ModuleType("_test_txn_up")
+    setattr(mod, "up", up_fn)
+    migration = MigrationFile(id="001_a", path=Path("001_a.py"), checksum="abc", module=mod)
+    store.get_applied.return_value = set()
+
+    with patch("mongrator.runner.loader.load", return_value=[migration]):
+        runner.up(transactional=True)
+
+    db["col"].insert_one.assert_called_once_with({"x": 1}, session=mock_session)
+
+
+def test_sync_up_transactional_injects_session_into_ops(tmp_path: Path) -> None:
+    runner, db, store, mock_session = _transactional_runner(tmp_path)
+    migrations = [_migration("001_a", ops_based=True)]  # create_index op
+    store.get_applied.return_value = set()
+
+    with patch("mongrator.runner.loader.load", return_value=migrations):
+        runner.up(transactional=True)
+
+    _, call_kwargs = db["col"].create_index.call_args
+    assert call_kwargs.get("session") is mock_session
+
+
+def test_sync_down_transactional_injects_session_into_migration(tmp_path: Path) -> None:
+    runner, db, store, mock_session = _transactional_runner(tmp_path)
+
+    def down_fn(received_db: Any) -> None:
+        received_db["col"].delete_many({})
+
+    mod = types.ModuleType("_test_txn_down")
+    setattr(mod, "up", lambda d: None)
+    setattr(mod, "down", down_fn)
+    migration = MigrationFile(id="001_a", path=Path("001_a.py"), checksum="abc", module=mod)
+    store.get_applied.return_value = {"001_a"}
+
+    with patch("mongrator.runner.loader.load", return_value=[migration]):
+        runner.down(transactional=True)
+
+    db["col"].delete_many.assert_called_once_with({}, session=mock_session)
 
 
 # ---------------------------------------------------------------------------
