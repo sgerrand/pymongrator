@@ -34,12 +34,15 @@ class Operation:
 
     @property
     def is_reversible(self) -> bool:
-        """Whether ``revert()`` is expected to succeed.
+        """Whether ``revert()`` can succeed on a fresh Operation instance.
 
-        Returns ``False`` for operations that will raise ``NotImplementedError``
-        on revert (e.g. ``drop_index`` without ``keys``, ``drop_field``,
-        ``drop_collection``).  Callers can inspect this at plan/load time to
-        warn about migrations that are not safely rollback-able.
+        The runner's auto-rollback path calls ``up(db)`` a second time to obtain
+        new Operation instances and then calls ``revert()`` on them.  Because
+        these are fresh instances, any state captured during ``apply()`` is not
+        available.  This property returns ``False`` when revert requires such
+        runtime state (e.g. ``drop_index`` without explicit ``keys``) or when
+        the operation is inherently destructive (``drop_field``,
+        ``drop_collection``).
         """
         return self._is_reversible
 
