@@ -51,13 +51,16 @@ def _run_up_migration(migration: MigrationFile, db: Any) -> None:
         # ops-based migration: up() returns ops, runner applies them.
         # Raw pymongo migrations return None.
         ops = cast(list[Operation], result)
+        if not migration.has_down():
+            for op in ops:
+                if not op.is_reversible:
+                    print(
+                        f"warning: operation {op.description} is not auto-reversible; "
+                        "rollback will fail without a down() function. "
+                        "Supply keys= to the operation or define a down() function.",
+                        file=sys.stderr,
+                    )
         for op in ops:
-            if not op.is_reversible:
-                print(
-                    f"warning: operation {op.description} is not reversible; "
-                    "auto-rollback will fail. Supply keys= or define a down() function.",
-                    file=sys.stderr,
-                )
             op.apply(db)  # type: ignore[arg-type]
 
 

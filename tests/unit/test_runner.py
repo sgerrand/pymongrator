@@ -135,8 +135,25 @@ def test_sync_up_warns_irreversible_ops(tmp_path: Path, capsys: pytest.CaptureFi
 
     captured = capsys.readouterr()
     assert "warning:" in captured.err
-    assert "not reversible" in captured.err
+    assert "not auto-reversible" in captured.err
     assert "drop_index" in captured.err
+
+
+def test_sync_up_no_warning_when_down_defined(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    runner, db, store = _sync_runner(tmp_path)
+
+    def up_fn(db: Any) -> list:
+        return [drop_index("col", "email_1")]
+
+    migrations = [_migration("001_a", ops_fn=up_fn, has_down=True)]
+    store.get_applied.return_value = set()
+    db["col"].index_information.return_value = {}
+
+    with patch("mongrator.runner.loader.load", return_value=migrations):
+        runner.up()
+
+    captured = capsys.readouterr()
+    assert "warning:" not in captured.err
 
 
 def test_sync_up_no_warning_for_reversible_ops(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
