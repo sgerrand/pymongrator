@@ -52,13 +52,15 @@ def _run_up_migration(migration: MigrationFile, db: Any) -> None:
         # Raw pymongo migrations return None.
         ops = cast(list[Operation], result)
         if not migration.has_down():
-            for op in ops:
-                if not op.is_reversible:
-                    print(
-                        f"warning: operation {op.description} is not auto-reversible; "
-                        "rollback will fail without a down() function.",
-                        file=sys.stderr,
-                    )
+            irreversible = [op.description for op in ops if not op.is_reversible]
+            if irreversible:
+                op_list = ", ".join(irreversible)
+                print(
+                    f"warning: migration {migration.id} ({migration.path}) has "
+                    f"{len(irreversible)} non-auto-reversible operation(s): {op_list}; "
+                    "rollback will fail without a down() function.",
+                    file=sys.stderr,
+                )
         for op in ops:
             op.apply(db)  # type: ignore[arg-type]
 
