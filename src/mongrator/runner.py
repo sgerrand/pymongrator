@@ -141,13 +141,18 @@ class SyncRunner:
         file_ids = {f.id for f in files}
         statuses: list[MigrationStatus] = []
         for f in files:
-            record = self._store.get_record(f.id)
-            checksum_ok = record is None or record["checksum"] == f.checksum
+            if f.id in applied:
+                record = self._store.get_record(f.id)
+                checksum_ok = record is None or record["checksum"] == f.checksum
+                applied_at = record["applied_at"] if record else None
+            else:
+                checksum_ok = True
+                applied_at = None
             statuses.append(
                 MigrationStatus(
                     id=f.id,
                     applied=f.id in applied,
-                    applied_at=record["applied_at"] if record else None,
+                    applied_at=applied_at,
                     checksum_ok=checksum_ok,
                 )
             )
@@ -251,13 +256,18 @@ class AsyncRunner:
         file_ids = {f.id for f in files}
         statuses: list[MigrationStatus] = []
         for f in files:
-            record = await self._store.get_record(f.id)
-            checksum_ok = record is None or record["checksum"] == f.checksum
+            if f.id in applied:
+                record = await self._store.get_record(f.id)
+                checksum_ok = record is None or record["checksum"] == f.checksum
+                applied_at = record["applied_at"] if record else None
+            else:
+                checksum_ok = True
+                applied_at = None
             statuses.append(
                 MigrationStatus(
                     id=f.id,
                     applied=f.id in applied,
-                    applied_at=record["applied_at"] if record else None,
+                    applied_at=applied_at,
                     checksum_ok=checksum_ok,
                 )
             )
