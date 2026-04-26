@@ -101,6 +101,6 @@ class MigratorConfig:
             raise ConfigurationError("MONGRATOR_URI environment variable is not set")
         if not database:
             raise ConfigurationError("MONGRATOR_DB environment variable is not set")
-        migrations_dir = Path(_get("MONGRATOR_MIGRATIONS_DIR", str(_DEFAULT_MIGRATIONS_DIR)))
-        collection = _get("MONGRATOR_COLLECTION", _DEFAULT_COLLECTION)
+        migrations_dir = Path(_get("MONGRATOR_MIGRATIONS_DIR") or str(_DEFAULT_MIGRATIONS_DIR))
+        collection = _get("MONGRATOR_COLLECTION") or _DEFAULT_COLLECTION
         return cls(uri=uri, database=database, migrations_dir=migrations_dir, collection=collection)
