@@ -84,3 +84,14 @@ class MigrationLockError(MigratorError):
             "Another migration may be in progress. "
             "If this is stale, the lock will expire automatically."
         )
+
+
+class TransactionNotSupportedError(MigratorError):
+    """The MongoDB server does not support transactions (requires a replica set)."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "Transactions require a MongoDB replica set. "
+            "The connected server does not support transactions. "
+            "Run without --transactional or configure a replica set."
+        )
