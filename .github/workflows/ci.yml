@@ -61,22 +61,24 @@ jobs:
         run: uv sync --group dev
 
       - name: Unit tests
+        env:
+          COVERAGE_FILE: reports/.coverage.unit
         run: >-
           uv run pytest tests/unit/
           --tb=short
           --junit-xml=reports/junit-unit.xml
           --cov=mongrator
-          --cov-data-file=reports/.coverage.unit
           --cov-report=term-missing
           --cov-report=xml:reports/coverage-unit.xml
 
       - name: Integration tests
+        env:
+          COVERAGE_FILE: reports/.coverage.integration
         run: >-
           uv run pytest tests/integration/
           --tb=short
           --junit-xml=reports/junit-integration.xml
           --cov=mongrator
-          --cov-data-file=reports/.coverage.integration
           --cov-report=term-missing
           --cov-report=xml:reports/coverage-integration.xml
 
