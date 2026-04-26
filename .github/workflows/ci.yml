@@ -66,6 +66,7 @@ jobs:
           --tb=short
           --junit-xml=reports/junit-unit.xml
           --cov=mongrator
+          --cov-data-file=reports/.coverage.unit
           --cov-report=term-missing
           --cov-report=xml:reports/coverage-unit.xml
 
@@ -75,6 +76,7 @@ jobs:
           --tb=short
           --junit-xml=reports/junit-integration.xml
           --cov=mongrator
+          --cov-data-file=reports/.coverage.integration
           --cov-report=term-missing
           --cov-report=xml:reports/coverage-integration.xml
 
