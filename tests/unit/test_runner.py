@@ -142,8 +142,8 @@ def _transactional_runner(tmp_path: Path) -> tuple[SyncRunner, MagicMock, MagicM
     that will be bound inside ``with client.start_session() as session:``.
     """
     runner, db, store = _sync_runner(tmp_path)
-    runner._client.admin.command.return_value = {"setName": "rs0"}
-    mock_session = runner._client.start_session.return_value.__enter__.return_value
+    runner._client.admin.command.return_value = {"setName": "rs0"}  # ty: ignore[unresolved-attribute]
+    mock_session = runner._client.start_session.return_value.__enter__.return_value  # ty: ignore[unresolved-attribute]
     return runner, db, store, mock_session
 
 
