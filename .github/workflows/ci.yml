@@ -80,6 +80,16 @@ jobs:
           --cov-report=term-missing
           --cov-report=xml:reports/coverage-integration.xml
 
+      - name: Combine coverage
+        run: |
+          uv run coverage combine reports/.coverage.unit reports/.coverage.integration
+          uv run coverage lcov -o reports/lcov.info
+
+      - name: Upload to Coveralls
+        uses: coverallsapp/github-action@5cbfd81b66ca5d10c19b062c04de0199c215fb6e # v2
+        with:
+          file: reports/lcov.info
+
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
