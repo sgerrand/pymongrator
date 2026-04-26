@@ -57,16 +57,46 @@ def _sync_runner(tmp_path: Path) -> tuple[SyncRunner, MagicMock, MagicMock]:
 
 
 def _async_runner(tmp_path: Path) -> tuple[AsyncRunner, MagicMock, AsyncMock]:
-    """Return (runner, mock_db, mock_store)."""
-    mock_db = MagicMock()
+    """Return (runner, mock_sync_db, mock_store).
+
+    The runner's sync _db is set to mock_sync_db.  The async _async_db is a
+    separate MagicMock accessible via ``runner._async_db``.
+    """
+    mock_sync_db = MagicMock()
+    mock_async_db = MagicMock()
     mock_client = MagicMock()
-    mock_client.__getitem__ = MagicMock(return_value=mock_db)
+    mock_client.__getitem__ = MagicMock(return_value=mock_async_db)
     mock_store = AsyncMock()
     config = _config(tmp_path)
     runner = AsyncRunner(mock_client, config)
+    runner._db = mock_sync_db
     runner._store = mock_store
     runner._lock = AsyncMock()
-    return runner, mock_db, mock_store
+    return runner, mock_sync_db, mock_store
+
+
+def _async_migration(
+    migration_id: str,
+    *,
+    has_async_down: bool = False,
+) -> MigrationFile:
+    """Create a migration with async up() and optionally async down()."""
+    mod = types.ModuleType(f"_test_async_{migration_id}")
+
+    async def async_up(db: Any) -> None:
+        # Record calls on the db mock for assertions.
+        db.async_up_called(migration_id)
+
+    setattr(mod, "up", async_up)
+
+    if has_async_down:
+
+        async def async_down(db: Any) -> None:
+            db.async_down_called(migration_id)
+
+        setattr(mod, "down", async_down)
+
+    return MigrationFile(id=migration_id, path=Path(f"{migration_id}.py"), checksum="abc", module=mod)
 
 
 # ---------------------------------------------------------------------------
@@ -648,3 +678,92 @@ async def test_async_plan_down_returns_rollback(tmp_path: Path) -> None:
 
     assert [m.id for m in plan.to_apply] == ["002_b"]
     store.record_applied.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# AsyncRunner — async migration functions
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_async_up_coroutine_receives_async_db(tmp_path: Path) -> None:
+    """Coroutine up() functions should receive the async database and be awaited."""
+    runner, sync_db, store = _async_runner(tmp_path)
+    migrations = [_async_migration("001_a")]
+    store.get_applied.return_value = set()
+
+    with patch("mongrator.runner.loader.load", return_value=migrations):
+        applied = await runner.up()
+
+    assert applied == ["001_a"]
+    # The async up() calls db.async_up_called — verify it was called on the async db.
+    runner._async_db.async_up_called.assert_called_once_with("001_a")
+    # Sync db should NOT have been called.
+    sync_db.async_up_called.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_async_down_coroutine_receives_async_db(tmp_path: Path) -> None:
+    """Coroutine down() functions should receive the async database and be awaited."""
+    runner, sync_db, store = _async_runner(tmp_path)
+    migrations = [_async_migration("001_a", has_async_down=True)]
+    store.get_applied.return_value = {"001_a"}
+
+    with patch("mongrator.runner.loader.load", return_value=migrations):
+        rolled_back = await runner.down()
+
+    assert rolled_back == ["001_a"]
+    runner._async_db.async_down_called.assert_called_once_with("001_a")
+    sync_db.async_down_called.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_async_up_sync_function_receives_sync_db(tmp_path: Path) -> None:
+    """Regular (non-coroutine) up() functions should still receive the sync database."""
+    runner, sync_db, store = _async_runner(tmp_path)
+    up_fn = MagicMock(return_value=None)
+    migrations = [_migration("001_a", ops_fn=up_fn)]
+    store.get_applied.return_value = set()
+
+    with patch("mongrator.runner.loader.load", return_value=migrations):
+        applied = await runner.up()
+
+    assert applied == ["001_a"]
+    up_fn.assert_called_once_with(sync_db)
+    assert up_fn.call_args[0][0] is not runner._async_db
+
+
+@pytest.mark.asyncio
+async def test_async_up_coroutine_returning_ops_applies_them(tmp_path: Path) -> None:
+    """Coroutine up() that returns list[Operation] should apply ops via the sync database."""
+    runner, sync_db, store = _async_runner(tmp_path)
+
+    async def async_up_with_ops(db: Any) -> list:
+        return [create_index("col", {"field": 1})]
+
+    mod = types.ModuleType("_test_async_ops_001")
+    setattr(mod, "up", async_up_with_ops)
+    migration = MigrationFile(id="001_a", path=Path("001_a.py"), checksum="abc", module=mod)
+
+    store.get_applied.return_value = set()
+
+    with patch("mongrator.runner.loader.load", return_value=[migration]):
+        applied = await runner.up()
+
+    assert applied == ["001_a"]
+    sync_db["col"].create_index.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_async_up_ops_based_uses_sync_db(tmp_path: Path) -> None:
+    """Ops-based migrations should use the sync database for apply()."""
+    runner, sync_db, store = _async_runner(tmp_path)
+    migrations = [_migration("001_a", ops_based=True)]
+    store.get_applied.return_value = set()
+
+    with patch("mongrator.runner.loader.load", return_value=migrations):
+        applied = await runner.up()
+
+    assert applied == ["001_a"]
+    # Ops apply via sync db — create_index should be called on the sync mock.
+    sync_db["col"].create_index.assert_called_once()
