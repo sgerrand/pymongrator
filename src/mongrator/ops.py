@@ -104,6 +104,9 @@ def drop_index(
     Operation instance that ran apply().
     """
     # Normalize dict keys to the list-of-tuples form pymongo expects.
+    # ty narrows isinstance(…, dict) to dict[object, object], losing the
+    # generic parameters, so the comprehension appears as list[tuple[object,
+    # object]] rather than list[tuple[str, int | str]].
     _norm_keys: list[tuple[str, int | str]] | None = None
     if isinstance(keys, dict):
         _norm_keys = [(k, v) for k, v in keys.items()]  # ty: ignore[invalid-assignment]
