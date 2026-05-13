@@ -21,7 +21,7 @@ nav:
       - api/exceptions.md
 
 theme:
-  name: zensical
+  name: material
 
 plugins:
   - search
