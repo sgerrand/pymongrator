@@ -11,6 +11,15 @@ updates:
     commit-message:
       prefix: ci
       include: scope
+    groups:
+      actions:
+        applies-to: version-updates
+        patterns:
+          - "*"
+      security:
+        applies-to: security-updates
+        patterns:
+          - "*"
   - package-ecosystem: uv
     directory: /
     schedule:
@@ -21,3 +30,13 @@ updates:
       prefix: fix
       prefix-development: chore
       include: scope
+    groups:
+      python:
+        applies-to: version-updates
+        dependency-type: development
+        patterns:
+          - "*"
+      security:
+        applies-to: security-updates
+        patterns:
+          - "*"
