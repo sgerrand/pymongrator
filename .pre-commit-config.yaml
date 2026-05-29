@@ -10,10 +10,10 @@ repos:
       - id: end-of-file-fixer
       - id: trailing-whitespace
 
-  - repo: https://github.com/DavidAnson/markdownlint-cli2
-    rev: v0.22.0
+  - repo: https://github.com/akiomik/mado
+    rev: 2bd203a81e6f389e6503782dc57362de9bde06d1
     hooks:
-      - id: markdownlint-cli2
+      - id: mado
 
   - repo: https://github.com/python-jsonschema/check-jsonschema
     rev: 0.33.0
