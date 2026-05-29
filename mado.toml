@@ -3,7 +3,7 @@ respect-ignore = true
 respect-gitignore = true
 output-format = "concise"
 quiet = false
-exclude = ["CHANGELOG.md"]
+exclude = ["./CHANGELOG.md"]
 rules = [
   "MD001",
   "MD002",
