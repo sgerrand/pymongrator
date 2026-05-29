@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.2](https://github.com/sgerrand/pymongrator/compare/v0.4.1...v0.4.2) (2026-05-29)
+
+
+### Bug Fixes
+
+* **deps:** bump click from 8.3.3 to 8.4.1 ([#61](https://github.com/sgerrand/pymongrator/issues/61)) ([49678c6](https://github.com/sgerrand/pymongrator/commit/49678c6e913fca12a82c8c550fb935ec22c0ec19))
+* **deps:** bump the security group across 1 directory with 2 updates ([#65](https://github.com/sgerrand/pymongrator/issues/65)) ([2472b3e](https://github.com/sgerrand/pymongrator/commit/2472b3ea2b4b6aae13501b97ea7322aedfb18ac7))
+* **deps:** bump urllib3 in the uv group across 1 directory ([#52](https://github.com/sgerrand/pymongrator/issues/52)) ([cb5986b](https://github.com/sgerrand/pymongrator/commit/cb5986bc355cf29e7bf544650267e3add78e73a7))
+* **docs:** use material theme name for zensical 0.0.40 ([96333bb](https://github.com/sgerrand/pymongrator/commit/96333bb1e47ca739572eb969f8ad5f2d7d261dd8))
+
 ## [0.4.1](https://github.com/sgerrand/pymongrator/compare/v0.4.0...v0.4.1) (2026-05-01)
 
 
