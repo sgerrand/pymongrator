@@ -49,6 +49,7 @@ Open the generated file and define the `up(db)` function. Using the [ops helpers
 ```python
 from mongrator import ops
 
+
 def up(db):
     return [
         ops.create_index("users", {"email": 1}, unique=True),

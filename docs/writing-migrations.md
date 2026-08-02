@@ -9,6 +9,7 @@ The `ops` helpers record their own inverses, so `down()` is generated automatica
 ```python
 from mongrator import ops
 
+
 def up(db):
     return [
         ops.create_index("users", {"email": 1}, unique=True),
@@ -43,6 +44,7 @@ def up(db):
         {"status": {"$exists": False}},
         {"$set": {"status": "pending"}},
     )
+
 
 def down(db):
     db["orders"].update_many({}, {"$unset": {"status": ""}})
