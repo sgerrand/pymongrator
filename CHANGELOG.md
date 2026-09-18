@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.4](https://github.com/sgerrand/pymongrator/compare/v0.4.3...v0.4.4) (2026-09-18)
+
+
+### Bug Fixes
+
+* **deps:** bump click from 8.4.2 to 8.5.0 ([#88](https://github.com/sgerrand/pymongrator/issues/88)) ([a9d5bc1](https://github.com/sgerrand/pymongrator/commit/a9d5bc1a9ec8de446a6bc8aa228eeb485c55dccf))
+* **deps:** bump pymongo from 4.17.0 to 4.18.0 ([#90](https://github.com/sgerrand/pymongrator/issues/90)) ([a481b67](https://github.com/sgerrand/pymongrator/commit/a481b671e9c5e8c5ec42154b47211e035035f372))
+* **deps:** bump pymongo from 4.18.0 to 4.18.1 ([#92](https://github.com/sgerrand/pymongrator/issues/92)) ([f13d46c](https://github.com/sgerrand/pymongrator/commit/f13d46cf387f85fbfb690594895b882f3199dae5))
+
 ## [0.4.3](https://github.com/sgerrand/pymongrator/compare/v0.4.2...v0.4.3) (2026-07-10)
 
 
