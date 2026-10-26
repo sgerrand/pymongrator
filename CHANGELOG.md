@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.4.4](https://github.com/sgerrand/pymongrator/compare/v0.4.3...v0.4.4) (2026-10-26)
+
+
+### Bug Fixes
+
+* **deps:** bump certifi ([#101](https://github.com/sgerrand/pymongrator/issues/101)) ([07edc8e](https://github.com/sgerrand/pymongrator/commit/07edc8e768a0c49f10cb0743dd9ab13bda8c2c32))
+* **deps:** bump click from 8.4.2 to 8.5.0 ([#88](https://github.com/sgerrand/pymongrator/issues/88)) ([a9d5bc1](https://github.com/sgerrand/pymongrator/commit/a9d5bc1a9ec8de446a6bc8aa228eeb485c55dccf))
+* **deps:** bump pymongo from 4.17.0 to 4.18.0 ([#90](https://github.com/sgerrand/pymongrator/issues/90)) ([a481b67](https://github.com/sgerrand/pymongrator/commit/a481b671e9c5e8c5ec42154b47211e035035f372))
+* **deps:** bump pymongo from 4.18.0 to 4.18.1 ([#92](https://github.com/sgerrand/pymongrator/issues/92)) ([f13d46c](https://github.com/sgerrand/pymongrator/commit/f13d46cf387f85fbfb690594895b882f3199dae5))
+* **deps:** bump pymongo from 4.18.2 to 4.18.3 ([#98](https://github.com/sgerrand/pymongrator/issues/98)) ([764d0a8](https://github.com/sgerrand/pymongrator/commit/764d0a8e2d4632f2a2207af573c2a29d98197103))
+* **deps:** bump pymongo from 4.18.3 to 4.19.0 ([#99](https://github.com/sgerrand/pymongrator/issues/99)) ([18d3a48](https://github.com/sgerrand/pymongrator/commit/18d3a48bca1da7a672580566ccab4e2851f46934))
+* **deps:** bump the security group across 1 directory with 2 updates ([#96](https://github.com/sgerrand/pymongrator/issues/96)) ([1233197](https://github.com/sgerrand/pymongrator/commit/1233197e55181adf396d9b896f7a77b094194d58))
+* **deps:** bump urllib3 ([#95](https://github.com/sgerrand/pymongrator/issues/95)) ([9c5da1e](https://github.com/sgerrand/pymongrator/commit/9c5da1ec33db2e503ae4aa15935ab206dd0fd091))
+* **deps:** bump virtualenv ([#100](https://github.com/sgerrand/pymongrator/issues/100)) ([ca54642](https://github.com/sgerrand/pymongrator/commit/ca54642a443e82724016a61e064dd531b423c28b))
+
 ## [0.4.3](https://github.com/sgerrand/pymongrator/compare/v0.4.2...v0.4.3) (2026-07-10)
 
 
