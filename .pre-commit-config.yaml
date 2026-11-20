@@ -26,14 +26,24 @@ repos:
     hooks:
       - id: pyproject-fmt
 
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.10
+  - repo: local
     hooks:
       - id: ruff
+        name: ruff check
+        entry: uv run --frozen ruff check --force-exclude
+        language: system
+        types_or: [python, pyi, jupyter]
+        require_serial: true
+
       - id: ruff-format
+        name: ruff format
+        entry: uv run --frozen ruff format --force-exclude
+        language: system
+        types_or: [python, pyi, jupyter]
+        require_serial: true
 
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.8.20
+    rev: 0.13.9
     hooks:
       - id: uv-lock
       - id: uv-sync
