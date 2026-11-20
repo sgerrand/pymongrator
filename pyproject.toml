@@ -1,7 +1,7 @@
 [build-system]
 build-backend = "uv_build"
 
-requires = [ "uv-build>=0.8.20,<0.12" ]
+requires = [ "uv-build>=0.8.20,<0.14" ]
 
 [project]
 name = "mongrator"
@@ -24,6 +24,8 @@ classifiers = [
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Topic :: Database",
   "Typing :: Typed",
 ]
@@ -41,6 +43,7 @@ scripts.mongrator = "mongrator:main"
 
 [dependency-groups]
 dev = [
+  "coverage>=7",
   "pre-commit>=4.2",
   "pytest>=8.3",
   "pytest-asyncio>=0.24",
@@ -59,6 +62,9 @@ docs = [
 line-length = 120
 
 lint.select = [ "E", "F", "I", "UP" ]
+
+[tool.pyproject-fmt]
+max_supported_python = "3.15"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
