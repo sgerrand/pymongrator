@@ -11,7 +11,7 @@ repos:
       - id: trailing-whitespace
 
   - repo: https://github.com/akiomik/mado
-    rev: 6642676268ddaad6187482ef57d95e218c6b865c  # frozen: v0.3.2
+    rev: 176308a272e4057641ae1732e7b87c243b0c7829  # frozen: v0.4.0
     hooks:
       - id: mado
 
