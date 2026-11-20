@@ -43,6 +43,7 @@ scripts.mongrator = "mongrator:main"
 
 [dependency-groups]
 dev = [
+  "coverage>=7",
   "pre-commit>=4.2",
   "pytest>=8.3",
   "pytest-asyncio>=0.24",
