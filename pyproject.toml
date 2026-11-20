@@ -24,6 +24,8 @@ classifiers = [
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Topic :: Database",
   "Typing :: Typed",
 ]
@@ -59,6 +61,9 @@ docs = [
 line-length = 120
 
 lint.select = [ "E", "F", "I", "UP" ]
+
+[tool.pyproject-fmt]
+max_supported_python = "3.15"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
